@@ -1,4 +1,4 @@
-# sonic-boom
+# sonic-boom&nbsp;&nbsp;[![Build Status](https://travis-ci.org/mcollina/sonic-boom.svg?branch=master)](https://travis-ci.org/mcollina/sonic-boom)
 
 Extremely fast utf8-only stream implementation to write to files and
 file descriptors.
