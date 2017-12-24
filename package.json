@@ -29,10 +29,10 @@
     "pre-commit": "^1.2.2",
     "snazzy": "^7.0.0",
     "standard": "^10.0.3",
+    "fastbench": "^1.0.1",
     "tap": "^11.0.0"
   },
   "dependencies": {
-    "fastbench": "^1.0.1",
     "flatstr": "^1.0.5",
     "reusify": "^1.0.3"
   }
