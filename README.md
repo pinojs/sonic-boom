@@ -44,6 +44,8 @@ The first argument can be:
 2. a file descriptor, something that is returned by `fs.open` or
    `fs.openSync`.
 
+It will emit the `'ready'` event when a file descriptor is available.
+
 ### SonicBoom#write(string)
 
 Writes the string to the file.

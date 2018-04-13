@@ -26,11 +26,15 @@ tearDown(() => {
 })
 
 test('write things to a file descriptor', (t) => {
-  t.plan(4)
+  t.plan(5)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom(fd)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
 
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
@@ -97,10 +101,14 @@ test('can be piped into', (t) => {
 })
 
 test('write things to a file', (t) => {
-  t.plan(4)
+  t.plan(5)
 
   const dest = file()
   const stream = new SonicBoom(dest)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
 
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))

@@ -46,6 +46,7 @@ function SonicBoom (fd) {
 
   if (typeof fd === 'number') {
     this.fd = fd
+    process.nextTick(() => this.emit('ready'))
   } else if (typeof fd === 'string') {
     this._writing = true
     fs.open(fd, 'a', (err, fd) => {
@@ -53,6 +54,8 @@ function SonicBoom (fd) {
         this.emit('error', err)
         return
       }
+
+      this.emit('ready')
 
       this.fd = fd
       this._writing = false
