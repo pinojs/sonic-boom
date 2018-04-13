@@ -2,36 +2,8 @@
 
 const fs = require('fs')
 const EventEmitter = require('events')
-const reusify = require('reusify')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
-
-function Holder () {
-  EventEmitter.call(this)
-
-  this.sonic = null
-  var that = this
-  this.release = function (err) {
-    var sonic = that.sonic
-    if (err) {
-      sonic.emit('error', err)
-      return
-    }
-
-    pool.release(that)
-
-    if (sonic._buf.length > 0) {
-      actualWrite(sonic)
-    } else if (sonic._ending === true) {
-      actualClose(sonic)
-    } else {
-      sonic._writing = false
-      sonic.emit('drain')
-    }
-  }
-}
-
-const pool = reusify(Holder)
 
 function SonicBoom (fd) {
   if (!(this instanceof SonicBoom)) {
@@ -66,6 +38,22 @@ function SonicBoom (fd) {
     })
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
+  }
+
+  this.release = (err) => {
+    if (err) {
+      this.emit('error', err)
+      return
+    }
+
+    if (this._buf.length > 0) {
+      actualWrite(this)
+    } else if (this._ending === true) {
+      actualClose(this)
+    } else {
+      this._writing = false
+      this.emit('drain')
+    }
   }
 }
 
@@ -106,11 +94,9 @@ SonicBoom.prototype.destroy = function () {
 }
 
 function actualWrite (sonic) {
-  const holder = pool.get()
-  holder.sonic = sonic
   sonic._writing = true
   flatstr(sonic._buf)
-  fs.write(sonic.fd, sonic._buf, 'utf8', holder.release)
+  fs.write(sonic.fd, sonic._buf, 'utf8', sonic.release)
   sonic._buf = ''
 }
 
