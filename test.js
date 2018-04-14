@@ -141,7 +141,7 @@ test('flushSync', (t) => {
 })
 
 test('destroy', (t) => {
-  t.plan(3)
+  t.plan(4)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -151,6 +151,43 @@ test('destroy', (t) => {
   stream.destroy()
   t.throws(() => { stream.write('hello world\n') })
 
-  const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\n')
+  fs.readFile(dest, 'utf8', function (err, data) {
+    t.error(err)
+    t.equal(data, 'hello world\n')
+  })
+})
+
+test('minLength', (t) => {
+  t.plan(7)
+
+  const dest = file()
+  const stream = new SonicBoom(dest, 4096)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  var fail = t.fail
+  stream.on('drain', fail)
+
+  // bad use of timer
+  // TODO refactor
+  setTimeout(function () {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, '')
+
+      stream.end()
+
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+        })
+      })
+    })
+  }, 100)
 })

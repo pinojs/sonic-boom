@@ -2,40 +2,12 @@
 
 const fs = require('fs')
 const EventEmitter = require('events')
-const reusify = require('reusify')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
-function Holder () {
-  EventEmitter.call(this)
-
-  this.sonic = null
-  var that = this
-  this.release = function (err) {
-    var sonic = that.sonic
-    if (err) {
-      sonic.emit('error', err)
-      return
-    }
-
-    pool.release(that)
-
-    if (sonic._buf.length > 0) {
-      actualWrite(sonic)
-    } else if (sonic._ending === true) {
-      actualClose(sonic)
-    } else {
-      sonic._writing = false
-      sonic.emit('drain')
-    }
-  }
-}
-
-const pool = reusify(Holder)
-
-function SonicBoom (fd) {
+function SonicBoom (fd, minLength) {
   if (!(this instanceof SonicBoom)) {
-    return new SonicBoom(fd)
+    return new SonicBoom(fd, minLength)
   }
 
   this._buf = ''
@@ -43,6 +15,8 @@ function SonicBoom (fd) {
   this._writing = false
   this._ending = false
   this.destroyed = false
+
+  this.minLength = minLength || 0
 
   if (typeof fd === 'number') {
     this.fd = fd
@@ -59,13 +33,36 @@ function SonicBoom (fd) {
 
       this.fd = fd
       this._writing = false
+
       // start
-      if (this._buf.length > 0) {
+      var len = this._buf.length
+      if (len > 0 && len > this.minLength) {
         actualWrite(this)
       }
     })
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
+  }
+
+  this.release = (err) => {
+    if (err) {
+      this.emit('error', err)
+      return
+    }
+
+    var len = this._buf.length
+    if (this._buf.length > 0 && len > this.minLength) {
+      actualWrite(this)
+    } else if (this._ending === true) {
+      if (len > 0) {
+        actualWrite(this)
+      } else {
+        actualClose(this)
+      }
+    } else {
+      this._writing = false
+      this.emit('drain')
+    }
   }
 }
 
@@ -76,13 +73,20 @@ SonicBoom.prototype.write = function (data) {
     throw new Error('SonicBoom destroyed')
   }
   this._buf += data
-  if (this._writing === false) {
+  var len = this._buf.length
+  if (this._writing === false && len > this.minLength) {
     actualWrite(this)
   }
-  return this._buf.length < 16384
+  return len < 16384
 }
 
 SonicBoom.prototype.end = function () {
+  if (!this._writing && this._buf.length > 0 && this.fd >= 0) {
+    actualWrite(this)
+    this._ending = true
+    return
+  }
+
   if (this._writing === true) {
     this._ending = true
     return
@@ -106,11 +110,9 @@ SonicBoom.prototype.destroy = function () {
 }
 
 function actualWrite (sonic) {
-  const holder = pool.get()
-  holder.sonic = sonic
   sonic._writing = true
   flatstr(sonic._buf)
-  fs.write(sonic.fd, sonic._buf, 'utf8', holder.release)
+  fs.write(sonic.fd, sonic._buf, 'utf8', sonic.release)
   sonic._buf = ''
 }
 
