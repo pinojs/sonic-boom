@@ -34,7 +34,7 @@ for (var i = 0; i < 10; i++) {
 
 ## API
 
-### SonicBoom(String|Number)
+### SonicBoom(String|Number, (minLength))
 
 Creates a new instance of SonicBoom.
 
@@ -43,6 +43,9 @@ The first argument can be:
 1. a string that is a path to a file to be written to (mode `'a'`)
 2. a file descriptor, something that is returned by `fs.open` or
    `fs.openSync`.
+
+The second argument is the minimum length of the internal buffer that is
+required before flushing.
 
 It will emit the `'ready'` event when a file descriptor is available.
 
