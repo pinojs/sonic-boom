@@ -141,7 +141,7 @@ test('flushSync', (t) => {
 })
 
 test('destroy', (t) => {
-  t.plan(3)
+  t.plan(4)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -151,8 +151,10 @@ test('destroy', (t) => {
   stream.destroy()
   t.throws(() => { stream.write('hello world\n') })
 
-  const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\n')
+  fs.readFile(dest, 'utf8', function (err, data) {
+    t.error(err)
+    t.equal(data, 'hello world\n')
+  })
 })
 
 test('minLength', (t) => {
