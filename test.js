@@ -26,7 +26,7 @@ tearDown(() => {
 })
 
 test('write things to a file descriptor', (t) => {
-  t.plan(5)
+  t.plan(6)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -47,10 +47,13 @@ test('write things to a file descriptor', (t) => {
       t.equal(data, 'hello world\nsomething else\n')
     })
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('write things in a streaming fashion', (t) => {
-  t.plan(7)
+  t.plan(8)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -77,10 +80,13 @@ test('write things in a streaming fashion', (t) => {
   stream.on('finish', () => {
     t.pass('finish emitted')
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('can be piped into', (t) => {
-  t.plan(3)
+  t.plan(4)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -98,10 +104,13 @@ test('can be piped into', (t) => {
       })
     })
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('write things to a file', (t) => {
-  t.plan(5)
+  t.plan(6)
 
   const dest = file()
   const stream = new SonicBoom(dest)
@@ -121,10 +130,13 @@ test('write things to a file', (t) => {
       t.equal(data, 'hello world\nsomething else\n')
     })
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('flushSync', (t) => {
-  t.plan(3)
+  t.plan(4)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -138,10 +150,14 @@ test('flushSync', (t) => {
 
   const data = fs.readFileSync(dest, 'utf8')
   t.equal(data, 'hello world\nsomething else\n')
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('destroy', (t) => {
-  t.plan(4)
+  t.plan(5)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -155,10 +171,18 @@ test('destroy', (t) => {
     t.error(err)
     t.equal(data, 'hello world\n')
   })
+
+  stream.on('finish', () => {
+    t.fail('finish emitted')
+  })
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })
 
 test('minLength', (t) => {
-  t.plan(7)
+  t.plan(8)
 
   const dest = file()
   const stream = new SonicBoom(dest, 4096)
@@ -190,4 +214,8 @@ test('minLength', (t) => {
       })
     })
   }, 100)
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })

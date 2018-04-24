@@ -50,13 +50,18 @@ function SonicBoom (fd, minLength) {
       return
     }
 
+    if (this.destroyed) {
+      return
+    }
+
     var len = this._buf.length
     if (this._buf.length > 0 && len > this.minLength) {
       actualWrite(this)
-    } else if (this._ending === true) {
+    } else if (this._ending) {
       if (len > 0) {
         actualWrite(this)
       } else {
+        this._writing = false
         actualClose(this)
       }
     } else {
@@ -74,21 +79,29 @@ SonicBoom.prototype.write = function (data) {
   }
   this._buf += data
   var len = this._buf.length
-  if (this._writing === false && len > this.minLength) {
+  if (!this._writing && len > this.minLength) {
     actualWrite(this)
   }
   return len < 16384
 }
 
 SonicBoom.prototype.end = function () {
-  if (!this._writing && this._buf.length > 0 && this.fd >= 0) {
-    actualWrite(this)
-    this._ending = true
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
+  if (this._ending) {
     return
   }
 
-  if (this._writing === true) {
-    this._ending = true
+  this._ending = true
+
+  if (!this._writing && this._buf.length > 0 && this.fd >= 0) {
+    actualWrite(this)
+    return
+  }
+
+  if (this._writing) {
     return
   }
 
@@ -96,6 +109,10 @@ SonicBoom.prototype.end = function () {
 }
 
 SonicBoom.prototype.flushSync = function () {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
   if (this.fd < 0) {
     throw new Error('sonic boom is not ready yet')
   }
@@ -106,6 +123,9 @@ SonicBoom.prototype.flushSync = function () {
 }
 
 SonicBoom.prototype.destroy = function () {
+  if (this.destroyed) {
+    return
+  }
   actualClose(this)
 }
 
@@ -124,7 +144,10 @@ function actualClose (sonic) {
       return
     }
 
-    sonic.emit('finish')
+    if (sonic._ending && !sonic._writing) {
+      sonic.emit('finish')
+    }
+    sonic.emit('close')
   })
   sonic.destroyed = true
   sonic._buf = ''
