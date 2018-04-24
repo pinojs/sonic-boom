@@ -35,7 +35,7 @@ function SonicBoom (fd, minLength) {
       this._writing = false
 
       // start
-      var len = this._buf.length
+      let len = this._buf.length
       if (len > 0 && len > this.minLength) {
         actualWrite(this)
       }
@@ -50,7 +50,7 @@ function SonicBoom (fd, minLength) {
       return
     }
 
-    var len = this._buf.length
+    let len = this._buf.length
     if (this._buf.length > 0 && len > this.minLength) {
       actualWrite(this)
     } else if (this._ending === true) {
@@ -73,7 +73,7 @@ SonicBoom.prototype.write = function (data) {
     throw new Error('SonicBoom destroyed')
   }
   this._buf += data
-  var len = this._buf.length
+  let len = this._buf.length
   if (this._writing === false && len > this.minLength) {
     actualWrite(this)
   }
