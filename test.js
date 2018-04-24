@@ -186,6 +186,18 @@ test('destroy', (t) => {
   })
 })
 
+test('destroy while opening', (t) => {
+  t.plan(1)
+
+  const dest = file()
+  const stream = new SonicBoom(dest)
+
+  stream.destroy()
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
 test('minLength', (t) => {
   t.plan(8)
 
