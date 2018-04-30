@@ -9,8 +9,10 @@ const path = require('path')
 const SonicBoom = require('.')
 const files = []
 
+var count = 0
+
 function file () {
-  const file = path.join(os.tmpdir(), `sonic-boom-${process.pid}-${process.hrtime().toString()}`)
+  const file = path.join(os.tmpdir(), `sonic-boom-${process.pid}-${process.hrtime().toString()}-${count++}`)
   files.push(file)
   return file
 }
