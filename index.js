@@ -29,14 +29,14 @@ function SonicBoom (fd, minLength) {
         return
       }
 
-      this.emit('ready')
-
       this.fd = fd
       this._writing = false
 
+      this.emit('ready')
+
       // start
       var len = this._buf.length
-      if (len > 0 && len > this.minLength) {
+      if (len > 0 && len > this.minLength && !this.destroyed) {
         actualWrite(this)
       }
     })
@@ -137,6 +137,10 @@ function actualWrite (sonic) {
 }
 
 function actualClose (sonic) {
+  if (sonic.fd === -1) {
+    sonic.once('ready', actualClose.bind(null, sonic))
+    return
+  }
   // TODO write a test to check if we are not leaking fds
   fs.close(sonic.fd, (err) => {
     if (err) {
