@@ -148,11 +148,14 @@ test('flushSync', (t) => {
   stream.flushSync()
   stream.end()
 
-  const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\nsomething else\n')
+  // let the file system settle down things
+  setImmediate(function () {
+    const data = fs.readFileSync(dest, 'utf8')
+    t.equal(data, 'hello world\nsomething else\n')
 
-  stream.on('close', () => {
-    t.pass('close emitted')
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
   })
 })
 
