@@ -54,6 +54,15 @@ It will emit the `'ready'` event when a file descriptor is available.
 Writes the string to the file.
 It will return false to signal the producer to slow down.
 
+### SonicBoom#flush()
+
+Writes the current buffer to the file if a write was not in progress.
+Do nothing if `minLength` is zero or if it is already writing.
+
+### SonicBoom#flushSync()
+
+Flushes the buffered data synchronously. This is a costly operation.
+
 ### SonicBoom#end()
 
 Closes the stream, the data will be flushed down asynchronously
@@ -61,10 +70,6 @@ Closes the stream, the data will be flushed down asynchronously
 ### SonicBook#destroy()
 
 Closes the stream immediately, the data is not flushed.
-
-### SonicBoom#flushSync()
-
-Flushes the buffered data synchronously
 
 ## License
 
