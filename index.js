@@ -131,6 +131,7 @@ SonicBoom.prototype.flushSync = function () {
 
   if (this._buf.length > 0) {
     fs.writeSync(this.fd, this._buf, 'utf8')
+    this._buf = ''
   }
 }
 
