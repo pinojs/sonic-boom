@@ -85,6 +85,18 @@ SonicBoom.prototype.write = function (data) {
   return len < 16384
 }
 
+SonicBoom.prototype.flush = function () {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
+  if (this._writing || this.minLength <= 0) {
+    return
+  }
+
+  actualWrite(this)
+}
+
 SonicBoom.prototype.end = function () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')

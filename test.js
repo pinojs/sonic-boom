@@ -236,3 +236,28 @@ test('minLength', (t) => {
     t.pass('close emitted')
   })
 })
+
+test('flush', (t) => {
+  t.plan(5)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd, 4096)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.flush()
+
+  stream.on('drain', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+      stream.end()
+    })
+  })
+})
