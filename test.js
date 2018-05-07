@@ -142,7 +142,7 @@ test('flushSync', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd)
+  const stream = new SonicBoom(fd, 4096)
 
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
@@ -158,7 +158,7 @@ test('flushSync', (t) => {
     stream.on('close', () => {
       t.pass('close emitted')
     })
-  }, 500)
+  })
 })
 
 test('destroy', (t) => {
