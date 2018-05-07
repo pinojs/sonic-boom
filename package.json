@@ -1,6 +1,6 @@
 {
   "name": "sonic-boom",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Extremely fast utf8 only stream implementation",
   "main": "index.js",
   "scripts": {
@@ -26,11 +26,11 @@
   },
   "homepage": "https://github.com/mcollina/sonic-boom#readme",
   "devDependencies": {
-    "pre-commit": "^1.2.2",
-    "snazzy": "^7.0.0",
-    "standard": "^10.0.3",
     "fastbench": "^1.0.1",
-    "tap": "^11.0.0"
+    "pre-commit": "^1.2.2",
+    "snazzy": "^7.1.1",
+    "standard": "^11.0.0",
+    "tap": "^11.1.4"
   },
   "dependencies": {
     "flatstr": "^1.0.5"
