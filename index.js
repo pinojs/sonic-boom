@@ -120,6 +120,12 @@ SonicBoom.prototype.end = function () {
   actualClose(this)
 }
 
+SonicBoom.prototype.flush = function () {
+  if (this._writing === false) {
+    actualWrite(this)
+  }
+}
+
 SonicBoom.prototype.flushSync = function () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
@@ -133,6 +139,9 @@ SonicBoom.prototype.flushSync = function () {
     fs.writeSync(this.fd, this._buf, 'utf8')
     this._buf = ''
   }
+
+  this._buf = ''
+  this._writing = false
 }
 
 SonicBoom.prototype.destroy = function () {
