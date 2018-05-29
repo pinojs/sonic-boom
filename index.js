@@ -95,6 +95,12 @@ SonicBoom.prototype.end = function () {
   actualClose(this)
 }
 
+SonicBoom.prototype.flush = function () {
+  if (this._writing === false) {
+    actualWrite(this)
+  }
+}
+
 SonicBoom.prototype.flushSync = function () {
   if (this.fd < 0) {
     throw new Error('sonic boom is not ready yet')
@@ -103,6 +109,9 @@ SonicBoom.prototype.flushSync = function () {
   if (this._buf.length > 0) {
     fs.writeSync(this.fd, this._buf, 'utf8')
   }
+
+  this._buf = ''
+  this._writing = false
 }
 
 SonicBoom.prototype.destroy = function () {

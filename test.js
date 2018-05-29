@@ -124,7 +124,7 @@ test('write things to a file', (t) => {
 })
 
 test('flushSync', (t) => {
-  t.plan(3)
+  t.plan(5)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -134,10 +134,29 @@ test('flushSync', (t) => {
   t.ok(stream.write('something else\n'))
 
   stream.flushSync()
+
+  t.equal(stream._writing, false)
+  t.equal(stream._buf.length, 0)
+
   stream.end()
 
   const data = fs.readFileSync(dest, 'utf8')
   t.equal(data, 'hello world\nsomething else\n')
+})
+
+test('flush', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd)
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.flush()
+
+  t.equal(stream._writing, true)
 })
 
 test('destroy', (t) => {
