@@ -140,6 +140,21 @@ test('flushSync', (t) => {
   t.equal(data, 'hello world\nsomething else\n')
 })
 
+test('flush', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd)
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.flush()
+
+  t.equal(stream._writing, true)
+})
+
 test('destroy', (t) => {
   t.plan(4)
 
