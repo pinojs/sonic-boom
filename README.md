@@ -59,6 +59,19 @@ It will return false to signal the producer to slow down.
 Writes the current buffer to the file if a write was not in progress.
 Do nothing if `minLength` is zero or if it is already writing.
 
+### SonicBoom#reopen([file])
+
+Reopen the file in place, usefult for log rotation.
+
+Example:
+
+```js
+const stream = new SonicBoom('./my.log')
+process.on('SIGUSR2', function () {
+  stream.reopen()
+})
+```
+
 ### SonicBoom#flushSync()
 
 Flushes the buffered data synchronously. This is a costly operation.

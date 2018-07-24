@@ -261,3 +261,112 @@ test('flush', (t) => {
     })
   })
 })
+
+test('reopen', (t) => {
+  t.plan(9)
+
+  const dest = file()
+  const stream = new SonicBoom(dest)
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  const after = dest + '-moved'
+
+  stream.once('drain', () => {
+    t.pass('drain emitted')
+
+    fs.renameSync(dest, after)
+    stream.reopen()
+
+    stream.once('ready', () => {
+      t.pass('ready emitted')
+      t.ok(stream.write('after reopen\n'))
+
+      stream.on('drain', () => {
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+          fs.readFile(dest, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'after reopen\n')
+            stream.end()
+          })
+        })
+      })
+    })
+  })
+})
+
+test('reopen with buffer', (t) => {
+  t.plan(9)
+
+  const dest = file()
+  const stream = new SonicBoom(dest, 4096)
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  const after = dest + '-moved'
+
+  stream.once('ready', () => {
+    t.pass('drain emitted')
+
+    stream.flush()
+    fs.renameSync(dest, after)
+    stream.reopen()
+
+    stream.once('ready', () => {
+      t.pass('ready emitted')
+      t.ok(stream.write('after reopen\n'))
+      stream.flush()
+
+      stream.on('drain', () => {
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+          fs.readFile(dest, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'after reopen\n')
+            stream.end()
+          })
+        })
+      })
+    })
+  })
+})
+
+test('reopen with file', (t) => {
+  t.plan(9)
+
+  const dest = file()
+  const stream = new SonicBoom(dest)
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  const after = dest + '-new'
+
+  stream.once('drain', () => {
+    t.pass('drain emitted')
+
+    stream.reopen(after)
+
+    stream.once('ready', () => {
+      t.pass('ready emitted')
+      t.ok(stream.write('after reopen\n'))
+
+      stream.on('drain', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+          fs.readFile(after, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'after reopen\n')
+            stream.end()
+          })
+        })
+      })
+    })
+  })
+})
