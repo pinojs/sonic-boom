@@ -5,6 +5,28 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
+function openFile (file, sonic) {
+  sonic._writing = true
+  sonic.file = file
+  fs.open(file, 'a', (err, fd) => {
+    if (err) {
+      sonic.emit('error', err)
+      return
+    }
+
+    sonic.fd = fd
+    sonic._writing = false
+
+    sonic.emit('ready')
+
+    // start
+    var len = sonic._buf.length
+    if (len > 0 && len > sonic.minLength && !sonic.destroyed) {
+      actualWrite(sonic)
+    }
+  })
+}
+
 function SonicBoom (fd, minLength) {
   if (!(this instanceof SonicBoom)) {
     return new SonicBoom(fd, minLength)
@@ -14,6 +36,8 @@ function SonicBoom (fd, minLength) {
   this.fd = -1
   this._writing = false
   this._ending = false
+  this._reopening = false
+  this.file = null
   this.destroyed = false
 
   this.minLength = minLength || 0
@@ -22,24 +46,7 @@ function SonicBoom (fd, minLength) {
     this.fd = fd
     process.nextTick(() => this.emit('ready'))
   } else if (typeof fd === 'string') {
-    this._writing = true
-    fs.open(fd, 'a', (err, fd) => {
-      if (err) {
-        this.emit('error', err)
-        return
-      }
-
-      this.fd = fd
-      this._writing = false
-
-      this.emit('ready')
-
-      // start
-      var len = this._buf.length
-      if (len > 0 && len > this.minLength && !this.destroyed) {
-        actualWrite(this)
-      }
-    })
+    openFile(fd, this)
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
   }
@@ -55,7 +62,11 @@ function SonicBoom (fd, minLength) {
     }
 
     var len = this._buf.length
-    if (this._buf.length > 0 && len > this.minLength) {
+    if (this._reopening) {
+      this._writing = false
+      this._reopening = false
+      this.reopen()
+    } else if (this._buf.length > 0 && len > this.minLength) {
       actualWrite(this)
     } else if (this._ending) {
       if (len > 0) {
@@ -95,6 +106,33 @@ SonicBoom.prototype.flush = function () {
   }
 
   actualWrite(this)
+}
+
+SonicBoom.prototype.reopen = function (file) {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
+  if (this._ending) {
+    return
+  }
+
+  if (!this.file) {
+    throw new Error('Unable to reopen a file descriptor, you must pass a file to SonicBoom')
+  }
+
+  if (this._writing) {
+    this._reopening = true
+    return
+  }
+
+  fs.close(this.fd, (err) => {
+    if (err) {
+      return this.emit('error', err)
+    }
+  })
+
+  openFile(file || this.file, this)
 }
 
 SonicBoom.prototype.end = function () {
