@@ -61,7 +61,7 @@ Do nothing if `minLength` is zero or if it is already writing.
 
 ### SonicBoom#reopen([file])
 
-Reopen the file in place, usefult for log rotation.
+Reopen the file in place, useful for log rotation.
 
 Example:
 
