@@ -181,10 +181,21 @@ SonicBoom.prototype.destroy = function () {
 }
 
 function actualWrite (sonic) {
-  sonic._writing = true
-  flatstr(sonic._buf)
-  fs.write(sonic.fd, sonic._buf, 'utf8', sonic.release)
+  const buf = flatstr(sonic._buf)
   sonic._buf = ''
+  sonic._writing = true
+
+  if (buf.length >= 4096) {
+    try {
+      fs.writeSync(sonic.fd, buf, 'utf8')
+    } catch (err) {
+      process.nextTick(sonic.release, err)
+      return
+    }
+    process.nextTick(sonic.release)
+  } else {
+    fs.write(sonic.fd, buf, 'utf8', sonic.release)
+  }
 }
 
 function actualClose (sonic) {
