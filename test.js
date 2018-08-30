@@ -6,9 +6,10 @@ const tearDown = tap.tearDown
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const proxyquire = require('proxyquire')
 const SonicBoom = require('.')
-const files = []
 
+const files = []
 var count = 0
 
 function file () {
@@ -368,5 +369,44 @@ test('reopen with file', (t) => {
         })
       })
     })
+  })
+})
+
+test('retry on EAGAIN', (t) => {
+  t.plan(7)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, buf, enc, cb) {
+    t.pass('fake fs.write called')
+    fakeFs.write = fs.write
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    process.nextTick(cb, err)
+  }
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
   })
 })
