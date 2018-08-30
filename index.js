@@ -35,6 +35,7 @@ function SonicBoom (fd, minLength) {
   this._buf = ''
   this.fd = -1
   this._writing = false
+  this._writingBuf = ''
   this._ending = false
   this._reopening = false
   this.file = null
@@ -53,9 +54,15 @@ function SonicBoom (fd, minLength) {
 
   this.release = (err) => {
     if (err) {
+      if (err.code === 'EAGAIN') {
+        fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+        return
+      }
+
       this.emit('error', err)
       return
     }
+    this._writingBuf = ''
 
     if (this.destroyed) {
       return
@@ -184,6 +191,7 @@ function actualWrite (sonic) {
   sonic._writing = true
   flatstr(sonic._buf)
   fs.write(sonic.fd, sonic._buf, 'utf8', sonic.release)
+  sonic._writingBuf = sonic._buf
   sonic._buf = ''
 }
 
