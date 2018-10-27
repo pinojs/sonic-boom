@@ -11,6 +11,7 @@ function openFile (file, sonic) {
   fs.open(file, 'a', (err, fd) => {
     if (err) {
       sonic.emit('error', err)
+      sonic.emit('close')
       return
     }
 
@@ -60,6 +61,7 @@ function SonicBoom (fd, minLength) {
       }
 
       this.emit('error', err)
+      actualClose(this)
       return
     }
     this._writingBuf = ''
@@ -135,7 +137,7 @@ SonicBoom.prototype.reopen = function (file) {
 
   fs.close(this.fd, (err) => {
     if (err) {
-      return this.emit('error', err)
+      this.emit('error', err)
     }
   })
 
@@ -204,10 +206,7 @@ function actualClose (sonic) {
   fs.close(sonic.fd, (err) => {
     if (err) {
       sonic.emit('error', err)
-      return
-    }
-
-    if (sonic._ending && !sonic._writing) {
+    } else if (sonic._ending && !sonic._writing) {
       sonic.emit('finish')
     }
     sonic.emit('close')
