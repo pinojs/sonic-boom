@@ -3,6 +3,8 @@
 const tap = require('tap')
 const test = tap.test
 const tearDown = tap.tearDown
+const { join } = require('path')
+const { fork } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -382,6 +384,64 @@ test('retry on EAGAIN', (t) => {
     const err = new Error('EAGAIN')
     err.code = 'EAGAIN'
     process.nextTick(cb, err)
+  }
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('chunk data accordingly', (t) => {
+  t.plan(2)
+
+  const child = fork(join(__dirname, 'fixtures', 'firehose.js'), { silent: true })
+  const str = Buffer.alloc(10000).fill('a').toString()
+
+  let data = ''
+
+  child.stdout.on('data', function (chunk) {
+    data += chunk.toString()
+  })
+
+  child.stdout.on('end', function () {
+    t.is(data, str)
+  })
+
+  child.on('close', function (code) {
+    t.is(code, 0)
+  })
+})
+
+test('write buffers that are not totally written', (t) => {
+  t.plan(7)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, buf, enc, cb) {
+    t.pass('fake fs.write called')
+    fakeFs.write = fs.write
+    process.nextTick(cb, null, 0)
   }
   const SonicBoom = proxyquire('.', {
     fs: fakeFs

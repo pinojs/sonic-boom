@@ -52,16 +52,26 @@ function SonicBoom (fd, minLength) {
     throw new Error('SonicBoom supports only file descriptors and files')
   }
 
-  this.release = (err) => {
+  this.release = (err, n) => {
     if (err) {
       if (err.code === 'EAGAIN') {
-        fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+        // let's give the destination some time to process the chunk
+        setTimeout(() => {
+          fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+        }, 100)
         return
       }
 
       this.emit('error', err)
       return
     }
+
+    if (this._writingBuf.length !== n) {
+      this._writingBuf = this._writingBuf.slice(n)
+      fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+      return
+    }
+
     this._writingBuf = ''
 
     if (this.destroyed) {
@@ -189,10 +199,11 @@ SonicBoom.prototype.destroy = function () {
 
 function actualWrite (sonic) {
   sonic._writing = true
-  flatstr(sonic._buf)
-  fs.write(sonic.fd, sonic._buf, 'utf8', sonic.release)
-  sonic._writingBuf = sonic._buf
+  var buf = sonic._buf
   sonic._buf = ''
+  flatstr(buf)
+  sonic._writingBuf = buf
+  fs.write(sonic.fd, buf, 'utf8', sonic.release)
 }
 
 function actualClose (sonic) {

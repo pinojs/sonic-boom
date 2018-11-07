@@ -7,7 +7,7 @@ var fs = require('fs')
 var core = fs.createWriteStream('/dev/null')
 var fd = fs.openSync('/dev/null', 'w')
 var sonic = new SonicBoom(fd)
-var sonic4k = new SonicBoom(fd, 10000)
+var sonic4k = new SonicBoom(fd, 4096)
 
 setTimeout(doBench, 100)
 
