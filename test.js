@@ -3,6 +3,8 @@
 const tap = require('tap')
 const test = tap.test
 const tearDown = tap.tearDown
+const { join } = require('path')
+const { fork } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -408,5 +410,26 @@ test('retry on EAGAIN', (t) => {
   })
   stream.on('close', () => {
     t.pass('close emitted')
+  })
+})
+
+test('chunk data accordingly', (t) => {
+  t.plan(2)
+
+  const child = fork(join(__dirname, 'fixtures', 'firehose.js'), { silent: true })
+  const str = Buffer.alloc(10000).fill('a').toString()
+
+  let data = ''
+
+  child.stdout.on('data', function (chunk) {
+    data += chunk.toString()
+  })
+
+  child.stdout.on('end', function () {
+    t.is(data, str)
+  })
+
+  child.on('close', function (code) {
+    t.is(code, 0)
   })
 })
