@@ -5,8 +5,6 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
-const maxWriteSize = 4096
-
 function openFile (file, sonic) {
   sonic._writing = true
   sonic.file = file
@@ -202,12 +200,7 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   sonic._writing = true
   var buf = sonic._buf
-  if (buf.length >= maxWriteSize) {
-    buf = sonic._buf.slice(0, maxWriteSize)
-    sonic._buf = sonic._buf.slice(maxWriteSize)
-  } else {
-    sonic._buf = ''
-  }
+  sonic._buf = ''
   flatstr(buf)
   sonic._writingBuf = buf
   fs.write(sonic.fd, buf, 'utf8', sonic.release)
