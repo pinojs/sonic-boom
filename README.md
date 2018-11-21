@@ -13,6 +13,11 @@ benchSonic*1000: 478.423ms
 benchCore*1000: 8096.463ms
 ```
 
+Note that if this is used to log to a windows terminal (`cmd.exe` or
+powershell), it is needed to run `chcp 65001` in the terminal to
+correctly display utf-8 characters, see
+[chcp](https://ss64.com/nt/chcp.html) for more details.
+
 ## Install
 
 ```
