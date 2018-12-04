@@ -105,6 +105,7 @@ SonicBoom.prototype.write = function (data) {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
+  flatstr(data)
   this._buf += data
   var len = this._buf.length
   if (!this._writing && len > this.minLength) {
