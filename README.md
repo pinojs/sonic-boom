@@ -54,7 +54,6 @@ The second argument is the minimum length of the internal buffer that is
 required before flushing.
 
 The third argument is a flag that make SonicBoom work synchronously or
-not.
 
 It will emit the `'ready'` event when a file descriptor is available.
 
