@@ -4,13 +4,14 @@ Extremely fast utf8-only stream implementation to write to files and
 file descriptors.
 
 This implementation is partial, but support backpressure and `.pipe()` in is here.
-However, it is 20x faster than Node Core `fs.createWriteStream()`:
+However, it is 2-3x faster than Node Core `fs.createWriteStream()`:
 
 ```
-benchSonic*1000: 476.229ms
-benchCore*1000: 8250.532ms
-benchSonic*1000: 478.423ms
-benchCore*1000: 8096.463ms
+benchSonic*1000: 3405.774ms
+benchSonicSync*1000: 3664.278ms
+benchSonic4k*1000: 3375.185ms
+benchSonicSync4k*1000: 3631.575ms
+benchCore*1000: 10922.763ms
 ```
 
 Note that if this is used to log to a windows terminal (`cmd.exe` or
