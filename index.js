@@ -27,9 +27,9 @@ function openFile (file, sonic) {
   })
 }
 
-function SonicBoom (fd, minLength) {
+function SonicBoom (fd, minLength, sync) {
   if (!(this instanceof SonicBoom)) {
-    return new SonicBoom(fd, minLength)
+    return new SonicBoom(fd, minLength, sync)
   }
 
   this._buf = ''
@@ -40,6 +40,7 @@ function SonicBoom (fd, minLength) {
   this._reopening = false
   this.file = null
   this.destroyed = false
+  this.sync = sync || false
 
   this.minLength = minLength || 0
 
@@ -203,7 +204,16 @@ function actualWrite (sonic) {
   sonic._buf = ''
   flatstr(buf)
   sonic._writingBuf = buf
-  fs.write(sonic.fd, buf, 'utf8', sonic.release)
+  if (sonic.sync) {
+    try {
+      var written = fs.writeSync(sonic.fd, buf, 'utf8')
+      process.nextTick(sonic.release, null, written)
+    } catch (err) {
+      process.nextTick(sonic.release, err)
+    }
+  } else {
+    fs.write(sonic.fd, buf, 'utf8', sonic.release)
+  }
 }
 
 function actualClose (sonic) {
