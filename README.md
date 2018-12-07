@@ -53,7 +53,7 @@ The first argument can be:
 The second argument is the minimum length of the internal buffer that is
 required before flushing.
 
-The third argument is a flag that make SonicBoom work synchronously or
+The third argument is a flag that, when true, causes `SonicBoom` to perform synchronous writes.
 
 It will emit the `'ready'` event when a file descriptor is available.
 
