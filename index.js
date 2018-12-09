@@ -95,7 +95,11 @@ function SonicBoom (fd, minLength, sync) {
       }
     } else {
       this._writing = false
-      this.emit('drain')
+      if (this.sync) {
+        process.nextTick(this.emit.bind(this, 'drain'))
+      } else {
+        this.emit('drain')
+      }
     }
   }
 }
@@ -106,6 +110,7 @@ SonicBoom.prototype.write = function (data) {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
+
   this._buf += data
   var len = this._buf.length
   if (!this._writing && len > this.minLength) {
@@ -201,18 +206,19 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   sonic._writing = true
   var buf = sonic._buf
+  var release = sonic.release
   sonic._buf = ''
   flatstr(buf)
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
       var written = fs.writeSync(sonic.fd, buf, 'utf8')
-      process.nextTick(sonic.release, null, written)
+      release(null, written)
     } catch (err) {
-      process.nextTick(sonic.release, err)
+      release(err)
     }
   } else {
-    fs.write(sonic.fd, buf, 'utf8', sonic.release)
+    fs.write(sonic.fd, buf, 'utf8', release)
   }
 }
 

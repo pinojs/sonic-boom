@@ -480,3 +480,25 @@ test('write buffers that are not totally written', (t) => {
     t.pass('close emitted')
   })
 })
+
+test('sync writing is fully sync', (t) => {
+  t.plan(5)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.writeSync = function (fd, buf, enc, cb) {
+    t.pass('fake fs.write called')
+    return fs.writeSync(fd, buf, enc)
+  }
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd, 0, true)
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  const data = fs.readFileSync(dest, 'utf8')
+  t.equal(data, 'hello world\nsomething else\n')
+})
