@@ -38,6 +38,7 @@ function SonicBoom (fd, minLength, sync) {
   this._writingBuf = ''
   this._ending = false
   this._reopening = false
+  this._asyncDrainScheduled = false
   this.file = null
   this.destroyed = false
   this.sync = sync || false
@@ -96,12 +97,20 @@ function SonicBoom (fd, minLength, sync) {
     } else {
       this._writing = false
       if (this.sync) {
-        process.nextTick(this.emit.bind(this, 'drain'))
+        if (!this._asyncDrainScheduled) {
+          this._asyncDrainScheduled = true
+          process.nextTick(emitDrain, this)
+        }
       } else {
         this.emit('drain')
       }
     }
   }
+}
+
+function emitDrain (sonic) {
+  sonic._asyncDrainScheduled = false
+  sonic.emit('drain')
 }
 
 inherits(SonicBoom, EventEmitter)

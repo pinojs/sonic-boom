@@ -482,7 +482,7 @@ test('write buffers that are not totally written', (t) => {
 })
 
 test('sync writing is fully sync', (t) => {
-  t.plan(5)
+  t.plan(6)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc, cb) {
@@ -498,6 +498,12 @@ test('sync writing is fully sync', (t) => {
   const stream = new SonicBoom(fd, 0, true)
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
+
+  // 'drain' will be only emitted once,
+  // the number of assertions at the top check this.
+  stream.on('drain', () => {
+    t.pass('drain emitted')
+  })
 
   const data = fs.readFileSync(dest, 'utf8')
   t.equal(data, 'hello world\nsomething else\n')
