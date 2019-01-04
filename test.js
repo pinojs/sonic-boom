@@ -445,12 +445,15 @@ test('retry on EAGAIN', (t) => {
 })
 
 test('write buffers that are not totally written', (t) => {
-  t.plan(7)
+  t.plan(9)
 
   const fakeFs = Object.create(fs)
   fakeFs.write = function (fd, buf, enc, cb) {
     t.pass('fake fs.write called')
-    fakeFs.write = fs.write
+    fakeFs.write = function (fd, buf, enc, cb) {
+      t.pass('calling real fs.write, ' + buf)
+      fs.write(fd, buf, enc, cb)
+    }
     process.nextTick(cb, null, 0)
   }
   const SonicBoom = proxyquire('.', {
@@ -460,6 +463,46 @@ test('write buffers that are not totally written', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom(fd, 0, false)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('write buffers that are not totally written with sync mode', (t) => {
+  t.plan(9)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.writeSync = function (fd, buf, enc) {
+    t.pass('fake fs.write called')
+    fakeFs.writeSync = (fd, buf, enc) => {
+      t.pass('calling real fs.writeSync, ' + buf)
+      return fs.writeSync(fd, buf, enc)
+    }
+    return 0
+  }
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd, 0, true)
 
   stream.on('ready', () => {
     t.pass('ready emitted')

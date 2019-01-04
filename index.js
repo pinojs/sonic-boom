@@ -70,8 +70,20 @@ function SonicBoom (fd, minLength, sync) {
 
     if (this._writingBuf.length !== n) {
       this._writingBuf = this._writingBuf.slice(n)
-      fs.write(this.fd, this._writingBuf, 'utf8', this.release)
-      return
+      if (this.sync) {
+        try {
+          do {
+            n = fs.writeSync(this.fd, this._writingBuf, 'utf8')
+            this._writingBuf = this._writingBuf.slice(n)
+          } while (this._writingBuf.length !== 0)
+        } catch (err) {
+          this.release(err)
+          return
+        }
+      } else {
+        fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+        return
+      }
     }
 
     this._writingBuf = ''
