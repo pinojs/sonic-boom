@@ -14,7 +14,7 @@ benchSonicSync4k*1000: 1733.582ms
 benchCore*1000: 6513.752ms
 ```
 
-Note that sync mode without buffering is _slower_ than Node Core in sync mode, however
+Note that sync mode without buffering is _slower_ than a Node Core WritableStream, however
 this mode matches the expected behavior of `console.log()`.
 
 Note that if this is used to log to a windows terminal (`cmd.exe` or
