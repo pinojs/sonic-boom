@@ -57,7 +57,9 @@ function SonicBoom (fd, minLength, sync) {
   this.release = (err, n) => {
     if (err) {
       if (err.code === 'EAGAIN') {
-        // let's give the destination some time to process the chunk
+        // Let's give the destination some time to process the chunk.
+        // This error code should not happen in sync mode, because it is
+        // not using the underlining operating system asynchronous functions.
         setTimeout(() => {
           fs.write(this.fd, this._writingBuf, 'utf8', this.release)
         }, 100)
@@ -97,7 +99,7 @@ function SonicBoom (fd, minLength, sync) {
       this._writing = false
       this._reopening = false
       this.reopen()
-    } else if (this._buf.length > 0 && len > this.minLength) {
+    } else if (len > 0 && len > this.minLength) {
       actualWrite(this)
     } else if (this._ending) {
       if (len > 0) {
