@@ -38,6 +38,7 @@ function SonicBoom (fd, minLength, sync) {
   this._writingBuf = ''
   this._ending = false
   this._reopening = false
+  this._asyncDrainScheduled = false
   this.file = null
   this.destroyed = false
   this.sync = sync || false
@@ -56,7 +57,9 @@ function SonicBoom (fd, minLength, sync) {
   this.release = (err, n) => {
     if (err) {
       if (err.code === 'EAGAIN') {
-        // let's give the destination some time to process the chunk
+        // Let's give the destination some time to process the chunk.
+        // This error code should not happen in sync mode, because it is
+        // not using the underlining operating system asynchronous functions.
         setTimeout(() => {
           fs.write(this.fd, this._writingBuf, 'utf8', this.release)
         }, 100)
@@ -69,8 +72,20 @@ function SonicBoom (fd, minLength, sync) {
 
     if (this._writingBuf.length !== n) {
       this._writingBuf = this._writingBuf.slice(n)
-      fs.write(this.fd, this._writingBuf, 'utf8', this.release)
-      return
+      if (this.sync) {
+        try {
+          do {
+            n = fs.writeSync(this.fd, this._writingBuf, 'utf8')
+            this._writingBuf = this._writingBuf.slice(n)
+          } while (this._writingBuf.length !== 0)
+        } catch (err) {
+          this.release(err)
+          return
+        }
+      } else {
+        fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+        return
+      }
     }
 
     this._writingBuf = ''
@@ -84,7 +99,7 @@ function SonicBoom (fd, minLength, sync) {
       this._writing = false
       this._reopening = false
       this.reopen()
-    } else if (this._buf.length > 0 && len > this.minLength) {
+    } else if (len > 0 && len > this.minLength) {
       actualWrite(this)
     } else if (this._ending) {
       if (len > 0) {
@@ -96,12 +111,20 @@ function SonicBoom (fd, minLength, sync) {
     } else {
       this._writing = false
       if (this.sync) {
-        process.nextTick(this.emit.bind(this, 'drain'))
+        if (!this._asyncDrainScheduled) {
+          this._asyncDrainScheduled = true
+          process.nextTick(emitDrain, this)
+        }
       } else {
         this.emit('drain')
       }
     }
   }
+}
+
+function emitDrain (sonic) {
+  sonic._asyncDrainScheduled = false
+  sonic.emit('drain')
 }
 
 inherits(SonicBoom, EventEmitter)

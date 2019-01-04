@@ -7,12 +7,15 @@ This implementation is partial, but support backpressure and `.pipe()` in is her
 However, it is 2-3x faster than Node Core `fs.createWriteStream()`:
 
 ```
-benchSonic*1000: 3405.774ms
-benchSonicSync*1000: 3664.278ms
-benchSonic4k*1000: 3375.185ms
-benchSonicSync4k*1000: 3631.575ms
-benchCore*1000: 10922.763ms
+benchSonic*1000: 2215.220ms
+benchSonicSync*1000: 8315.173ms
+benchSonic4k*1000: 2184.558ms
+benchSonicSync4k*1000: 1733.582ms
+benchCore*1000: 6513.752ms
 ```
+
+Note that sync mode without buffering is _slower_ than a Node Core WritableStream, however
+this mode matches the expected behavior of `console.log()`.
 
 Note that if this is used to log to a windows terminal (`cmd.exe` or
 powershell), it is needed to run `chcp 65001` in the terminal to
