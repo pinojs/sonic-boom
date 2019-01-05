@@ -6,6 +6,7 @@ const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
 function openFile (file, sonic) {
+  sonic._opening = true
   sonic._writing = true
   sonic.file = file
   fs.open(file, 'a', (err, fd) => {
@@ -15,6 +16,7 @@ function openFile (file, sonic) {
     }
 
     sonic.fd = fd
+    sonic._opening = false
     sonic._writing = false
 
     sonic.emit('ready')
@@ -195,6 +197,12 @@ SonicBoom.prototype.end = function () {
   if (!this._writing && this._buf.length > 0 && this.fd >= 0) {
     actualWrite(this)
     return
+  }
+
+  if (this._writing && this._opening) {
+    this.once('ready', () => {
+      actualWrite(this)
+    })
   }
 
   if (this._writing) {
