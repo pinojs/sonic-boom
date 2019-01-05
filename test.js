@@ -348,6 +348,28 @@ function buildTests (test, sync) {
     })
   })
 
+  test('end after reopen', (t) => {
+    t.plan(4)
+
+    const dest = file()
+    const stream = new SonicBoom(dest, 4096, sync)
+
+    stream.once('ready', () => {
+      t.pass('ready emitted')
+      const after = dest + '-moved'
+      stream.reopen(after)
+      stream.write('after reopen\n')
+      stream.on('finish', () => {
+        t.pass('finish emitted')
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'after reopen\n')
+        })
+      })
+      stream.end()
+    })
+  })
+
   test('reopen with file', (t) => {
     t.plan(9)
 
