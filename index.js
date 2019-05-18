@@ -161,6 +161,13 @@ SonicBoom.prototype.reopen = function (file) {
     throw new Error('SonicBoom destroyed')
   }
 
+  if (this._opening) {
+    this.once('ready', () => {
+      this.reopen(file)
+    })
+    return
+  }
+
   if (this._ending) {
     return
   }
@@ -188,6 +195,13 @@ SonicBoom.prototype.end = function () {
     throw new Error('SonicBoom destroyed')
   }
 
+  if (this._opening) {
+    this.once('ready', () => {
+      this.end()
+    })
+    return
+  }
+
   if (this._ending) {
     return
   }
@@ -197,12 +211,6 @@ SonicBoom.prototype.end = function () {
   if (!this._writing && this._buf.length > 0 && this.fd >= 0) {
     actualWrite(this)
     return
-  }
-
-  if (this._writing && this._opening) {
-    this.once('ready', () => {
-      actualWrite(this)
-    })
   }
 
   if (this._writing) {
