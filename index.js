@@ -5,6 +5,13 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
+// 16 MB - magic number
+// This constant ensures that SonicBoom only needs
+// 32 MB of free memory to run. In case of having 1GB+
+// of data to write, this prevents an out of memory
+// condition.
+const MAX_WRITE = 16 * 1024 * 1024
+
 function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
@@ -246,7 +253,12 @@ function actualWrite (sonic) {
   sonic._writing = true
   var buf = sonic._buf
   var release = sonic.release
-  sonic._buf = ''
+  if (buf.length > MAX_WRITE) {
+    buf = buf.slice(0, MAX_WRITE)
+    sonic._buf = sonic._buf.slice(MAX_WRITE)
+  } else {
+    sonic._buf = ''
+  }
   flatstr(buf)
   sonic._writingBuf = buf
   if (sonic.sync) {
