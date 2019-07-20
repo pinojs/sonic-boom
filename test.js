@@ -615,58 +615,64 @@ test('sync writing is fully sync', (t) => {
   t.equal(data, 'hello world\nsomething else\n')
 })
 
-test('write enormously large buffers async', (t) => {
-  t.plan(3)
+// these tests do not run TravisCI. There seem to be not
+// enough memory there to trigger this situation.
+// Moreover they will fail on Node 6, as we cannot allocate a string this
+// big. It's considered a won't fix on Node 6, as it's deprecated.
+if (!process.env.TRAVIS_CI && process.versions.node.indexOf('6.0') === -1) {
+  test('write enormously large buffers async', (t) => {
+    t.plan(3)
 
-  const dest = file()
-  const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, false)
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom(fd, 0, false)
 
-  const buf = Buffer.alloc(1024 * 1024).fill('x').toString() // 1 MB
-  let length = 0
+    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+    let length = 0
 
-  for (let i = 0; i < 1024; i++) {
-    length += buf.length
-    stream.write(buf)
-  }
+    for (let i = 0; i < 1024 * 1024; i++) {
+      length += buf.length
+      stream.write(buf)
+    }
 
-  stream.end()
+    stream.end()
 
-  stream.on('finish', () => {
-    fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
+    stream.on('finish', () => {
+      fs.stat(dest, (err, stat) => {
+        t.error(err)
+        t.equal(stat.size, length)
+      })
+    })
+    stream.on('close', () => {
+      t.pass('close emitted')
     })
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
-  })
-})
 
-test('write enormously large buffers sync', (t) => {
-  t.plan(3)
+  test('write enormously large buffers sync', (t) => {
+    t.plan(3)
 
-  const dest = file()
-  const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, true)
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom(fd, 0, true)
 
-  const buf = Buffer.alloc(1024 * 1024).fill('x').toString() // 1 MB
-  let length = 0
+    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+    let length = 0
 
-  for (let i = 0; i < 1024; i++) {
-    length += buf.length
-    stream.write(buf)
-  }
+    for (let i = 0; i < 1024 * 1024; i++) {
+      length += buf.length
+      stream.write(buf)
+    }
 
-  stream.end()
+    stream.end()
 
-  stream.on('finish', () => {
-    fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
+    stream.on('finish', () => {
+      fs.stat(dest, (err, stat) => {
+        t.error(err)
+        t.equal(stat.size, length)
+      })
+    })
+    stream.on('close', () => {
+      t.pass('close emitted')
     })
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
-  })
-})
+}
