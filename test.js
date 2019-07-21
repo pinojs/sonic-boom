@@ -619,7 +619,7 @@ test('sync writing is fully sync', (t) => {
 // enough memory there to trigger this situation.
 // Moreover they will fail on Node 6, as we cannot allocate a string this
 // big. It's considered a won't fix on Node 6, as it's deprecated.
-if (!process.env.TRAVIS_CI || process.versions.node.indexOf('6.') !== -1) {
+if (!(process.env.TRAVIS_CI || process.versions.node.indexOf('6.') === 0)) {
   test('write enormously large buffers async', (t) => {
     t.plan(3)
 
