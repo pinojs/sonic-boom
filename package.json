@@ -4,7 +4,8 @@
   "description": "Extremely fast utf8 only stream implementation",
   "main": "index.js",
   "scripts": {
-    "test": "standard | snazzy && tap test.js "
+    "test": "standard | snazzy && tap test.js",
+    "ci": "node test.js"
   },
   "repository": {
     "type": "git",
