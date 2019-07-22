@@ -674,3 +674,33 @@ if (process.versions.node.indexOf('6.') !== 0) {
     })
   })
 }
+
+test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
+  t.plan(4)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd, 0, true)
+
+  let buf = Buffer.alloc((1024 * 16) - 2).fill('x') // 16MB - 3B
+  const length = buf.length + 4
+  buf = buf.toString() + '🌲' // 16 MB + 1B
+
+  stream.write(buf)
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.stat(dest, (err, stat) => {
+      t.error(err)
+      t.equal(stat.size, length)
+      const char = Buffer.alloc(4)
+      const fd = fs.openSync(dest)
+      fs.readSync(fd, char, 0, 4, length - 4)
+      t.equal(char.toString(), '🌲')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
