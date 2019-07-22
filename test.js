@@ -695,7 +695,7 @@ test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
       t.error(err)
       t.equal(stat.size, length)
       const char = Buffer.alloc(4)
-      const fd = fs.openSync(dest)
+      const fd = fs.openSync(dest, 'r')
       fs.readSync(fd, char, 0, 4, length - 4)
       t.equal(char.toString(), '🌲')
     })
