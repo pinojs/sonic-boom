@@ -348,6 +348,23 @@ function buildTests (test, sync) {
     })
   })
 
+  test('reopen if not open', (t) => {
+    t.plan(3)
+
+    const dest = file()
+    const stream = new SonicBoom(dest, 0, sync)
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.reopen()
+
+    stream.end()
+    stream.on('close', function () {
+      t.pass('ended')
+    })
+  })
+
   test('end after reopen', (t) => {
     t.plan(4)
 

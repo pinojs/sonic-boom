@@ -23,10 +23,15 @@ function openFile (file, sonic) {
     }
 
     sonic.fd = fd
+    sonic._reopening = false
     sonic._opening = false
     sonic._writing = false
 
     sonic.emit('ready')
+
+    if (sonic._reopening) {
+      return
+    }
 
     // start
     var len = sonic._buf.length
@@ -183,8 +188,9 @@ SonicBoom.prototype.reopen = function (file) {
     throw new Error('Unable to reopen a file descriptor, you must pass a file to SonicBoom')
   }
 
+  this._reopening = true
+
   if (this._writing) {
-    this._reopening = true
     return
   }
 
