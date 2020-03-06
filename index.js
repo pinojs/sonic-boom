@@ -274,7 +274,7 @@ function actualWrite (sonic) {
         sonic._writingBuf = sonic._writingBuf.slice(written)
       } while (sonic._writingBuf.length !== 0)
 
-      sonic.release(null, 0)
+      release(null, 0)
     } catch (err) {
       release(err)
     }
