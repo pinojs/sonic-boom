@@ -70,7 +70,7 @@ function SonicBoom (fd, minLength, sync) {
 
   this.release = (err, n) => {
     if (err) {
-      if (err.code === 'EAGAIN') {
+      if (err.code === 'EAGAIN' && !this.sync) {
         // Let's give the destination some time to process the chunk.
         // This error code should not happen in sync mode, because it is
         // not using the underlining operating system asynchronous functions.
