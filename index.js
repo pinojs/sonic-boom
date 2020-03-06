@@ -269,8 +269,12 @@ function actualWrite (sonic) {
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
-      var written = fs.writeSync(sonic.fd, buf, 'utf8')
-      release(null, written)
+      do {
+        var written = fs.writeSync(sonic.fd, sonic._writingBuf, 'utf8')
+        sonic._writingBuf = sonic._writingBuf.slice(written)
+      } while (sonic._writingBuf.length !== 0)
+
+      sonic.release(null, 0)
     } catch (err) {
       release(err)
     }
