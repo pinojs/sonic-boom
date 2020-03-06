@@ -690,6 +690,34 @@ if (process.versions.node.indexOf('6.') !== 0) {
       t.pass('close emitted')
     })
   })
+
+  test('write enormously large buffers (beyond single write threshold) sync', (t) => {
+    t.plan(2)
+
+    let calls = 0
+
+    const fakeFs = Object.create(fs)
+    fakeFs.writeSync = function (fd, buf, enc, cb) {
+      calls++
+      return Math.min(16 * 1024 * 1024, buf.length)
+    }
+
+    const SonicBoom = proxyquire('.', { fs: fakeFs })
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom(fd, 0, true)
+
+    stream.write(Buffer.alloc(64 * 1024 * 1024).fill('a').toString())
+    stream.end()
+
+    stream.on('finish', () => {
+      t.equal(calls, 4)
+    })
+
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
+  })
 }
 
 test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
