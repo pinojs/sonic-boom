@@ -5,6 +5,8 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
+const BUSY_WRITE_TIMEOUT = 100
+
 var sleep
 
 if (process.version.indexOf('v6') === 0) {
@@ -15,8 +17,9 @@ if (process.version.indexOf('v6') === 0) {
 }
 
 function activeSleep (ms) {
+  const now = Date.now()
   // This will keep the CPU busy until we are done
-  for (var i = 0; i < ms * 1000; i++) {}
+  while (Date.now() < now + ms) {}
 }
 
 // 16 MB - magic number
@@ -86,19 +89,21 @@ function SonicBoom (fd, minLength, sync) {
     if (err) {
       if (err.code === 'EAGAIN') {
         if (this.sync) {
+          // This error code should not happen in sync mode, because it is
+          // not using the underlining operating system asynchronous functions.
+          // However it happens, and so we handle it.
+          // Ref: https://github.com/pinojs/pino/issues/783
           try {
-            sleep(100)
+            sleep(BUSY_WRITE_TIMEOUT)
             this.release(undefined, 0)
           } catch (err) {
             this.release(err)
           }
         } else {
           // Let's give the destination some time to process the chunk.
-          // This error code should not happen in sync mode, because it is
-          // not using the underlining operating system asynchronous functions.
           setTimeout(() => {
             fs.write(this.fd, this._writingBuf, 'utf8', this.release)
-          }, 100)
+          }, BUSY_WRITE_TIMEOUT)
         }
       } else {
         this.emit('error', err)
