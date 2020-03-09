@@ -5,6 +5,21 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
+var sleep
+
+// wasm is not available in Node 6.
+try {
+  const sleepWasm = require('sleep.wasm')
+  sleep = sleepWasm.mssleep
+} catch (err) {
+  sleep = activeSleep
+}
+
+function activeSleep (ms) {
+  // This will keep the CPU busy until we are done
+  for (var i = 0; i < ms * 1000; i++) {}
+}
+
 // 16 MB - magic number
 // This constant ensures that SonicBoom only needs
 // 32 MB of free memory to run. In case of having 1GB+
@@ -70,17 +85,25 @@ function SonicBoom (fd, minLength, sync) {
 
   this.release = (err, n) => {
     if (err) {
-      if (err.code === 'EAGAIN' && !this.sync) {
-        // Let's give the destination some time to process the chunk.
-        // This error code should not happen in sync mode, because it is
-        // not using the underlining operating system asynchronous functions.
-        setTimeout(() => {
-          fs.write(this.fd, this._writingBuf, 'utf8', this.release)
-        }, 100)
-        return
+      if (err.code === 'EAGAIN') {
+        if (this.sync) {
+          try {
+            sleep(100)
+            this.release(undefined, 0)
+          } catch (err) {
+            this.release(err)
+          }
+        } else {
+          // Let's give the destination some time to process the chunk.
+          // This error code should not happen in sync mode, because it is
+          // not using the underlining operating system asynchronous functions.
+          setTimeout(() => {
+            fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+          }, 100)
+        }
+      } else {
+        this.emit('error', err)
       }
-
-      this.emit('error', err)
       return
     }
 
