@@ -11,7 +11,7 @@ if (process.version.indexOf('v6') === 0) {
   sleep = activeSleep
 } else {
   const sleepWasm = require('sleep.wasm')
-  sleep = sleepWasm.mssleep
+  sleep = sleepWasm.msleep
 }
 
 function activeSleep (ms) {
