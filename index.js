@@ -7,12 +7,11 @@ const inherits = require('util').inherits
 
 var sleep
 
-// wasm is not available in Node 6.
-try {
+if (process.version.indexOf('v6') === 0) {
+  sleep = activeSleep
+} else {
   const sleepWasm = require('sleep.wasm')
   sleep = sleepWasm.mssleep
-} catch (err) {
-  sleep = activeSleep
 }
 
 function activeSleep (ms) {
