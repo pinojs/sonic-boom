@@ -7,20 +7,7 @@ const inherits = require('util').inherits
 
 const BUSY_WRITE_TIMEOUT = 100
 
-var sleep
-
-if (process.version.indexOf('v6') === 0) {
-  sleep = activeSleep
-} else {
-  const sleepWasm = require('sleep.wasm')
-  sleep = sleepWasm.msleep
-}
-
-function activeSleep (ms) {
-  const now = Date.now()
-  // This will keep the CPU busy until we are done
-  while (Date.now() < now + ms) {}
-}
+const sleep = require('atomic-sleep')
 
 // 16 MB - magic number
 // This constant ensures that SonicBoom only needs

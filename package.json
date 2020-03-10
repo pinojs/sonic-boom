@@ -34,7 +34,7 @@
     "tap": "^12.1.0"
   },
   "dependencies": {
-    "flatstr": "^1.0.12",
-    "sleep.wasm": "^0.1.0"
+    "atomic-sleep": "^1.0.0",
+    "flatstr": "^1.0.12"
   }
 }
