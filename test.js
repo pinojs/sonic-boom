@@ -524,6 +524,45 @@ test('retry on EAGAIN', (t) => {
   })
 })
 
+test('retry on EAGAIN (sync)', (t) => {
+  t.plan(7)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.writeSync = function (fd, buf, enc, cb) {
+    t.pass('fake fs.writeSync called')
+    fakeFs.writeSync = fs.writeSync
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    throw err
+  }
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom(fd, 0, true)
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
 test('write buffers that are not totally written', (t) => {
   t.plan(9)
 

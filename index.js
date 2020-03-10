@@ -5,6 +5,10 @@ const EventEmitter = require('events')
 const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
+const BUSY_WRITE_TIMEOUT = 100
+
+const sleep = require('atomic-sleep')
+
 // 16 MB - magic number
 // This constant ensures that SonicBoom only needs
 // 32 MB of free memory to run. In case of having 1GB+
@@ -71,16 +75,26 @@ function SonicBoom (fd, minLength, sync) {
   this.release = (err, n) => {
     if (err) {
       if (err.code === 'EAGAIN') {
-        // Let's give the destination some time to process the chunk.
-        // This error code should not happen in sync mode, because it is
-        // not using the underlining operating system asynchronous functions.
-        setTimeout(() => {
-          fs.write(this.fd, this._writingBuf, 'utf8', this.release)
-        }, 100)
-        return
+        if (this.sync) {
+          // This error code should not happen in sync mode, because it is
+          // not using the underlining operating system asynchronous functions.
+          // However it happens, and so we handle it.
+          // Ref: https://github.com/pinojs/pino/issues/783
+          try {
+            sleep(BUSY_WRITE_TIMEOUT)
+            this.release(undefined, 0)
+          } catch (err) {
+            this.release(err)
+          }
+        } else {
+          // Let's give the destination some time to process the chunk.
+          setTimeout(() => {
+            fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+          }, BUSY_WRITE_TIMEOUT)
+        }
+      } else {
+        this.emit('error', err)
       }
-
-      this.emit('error', err)
       return
     }
 
