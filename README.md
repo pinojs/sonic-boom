@@ -1,4 +1,4 @@
-# sonic-boom&nbsp;&nbsp;[![Build Status](https://travis-ci.org/mcollina/sonic-boom.svg?branch=master)](https://travis-ci.org/mcollina/sonic-boom)
+# sonic-boom&nbsp;&nbsp;![Node.js CI](https://github.com/davealbert/sonic-boom/workflows/Node.js%20CI/badge.svg)
 
 Extremely fast utf8-only stream implementation to write to files and
 file descriptors.
