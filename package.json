@@ -1,6 +1,6 @@
 {
   "name": "sonic-boom",
-  "version": "0.7.7",
+  "version": "1.0.0",
   "description": "Extremely fast utf8 only stream implementation",
   "main": "index.js",
   "scripts": {
