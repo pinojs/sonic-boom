@@ -2,14 +2,16 @@
 
 var bench = require('fastbench')
 var SonicBoom = require('./')
+var Console = require('console').Console
 var fs = require('fs')
 
 var core = fs.createWriteStream('/dev/null')
 var fd = fs.openSync('/dev/null', 'w')
-var sonic = new SonicBoom(fd)
-var sonic4k = new SonicBoom(fd, 4096)
-var sonicSync = new SonicBoom(fd, 0, true)
-var sonicSync4k = new SonicBoom(fd, 4096, true)
+var sonic = new SonicBoom({ fd })
+var sonic4k = new SonicBoom({ fd, minLength: 4096 })
+var sonicSync = new SonicBoom({ fd, sync: true })
+var sonicSync4k = new SonicBoom({ fd, minLength: 4096, sync: true })
+var dummyConsole = new Console(fs.createWriteStream('/dev/null'))
 
 var MAX = 10000
 
@@ -55,6 +57,12 @@ var run = bench([
     for (var i = 0; i < MAX; i++) {
       core.write(str())
     }
+  },
+  function benchConsole (cb) {
+    for (var i = 0; i < MAX; i++) {
+      dummyConsole.log(str())
+    }
+    setImmediate(cb)
   }
 ], 1000)
 

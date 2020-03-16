@@ -7,11 +7,12 @@ This implementation is partial, but support backpressure and `.pipe()` in is her
 However, it is 2-3x faster than Node Core `fs.createWriteStream()`:
 
 ```
-benchSonic*1000: 2215.220ms
-benchSonicSync*1000: 8315.173ms
-benchSonic4k*1000: 2184.558ms
-benchSonicSync4k*1000: 1733.582ms
-benchCore*1000: 6513.752ms
+benchSonic*1000: 1916.904ms
+benchSonicSync*1000: 8605.265ms
+benchSonic4k*1000: 1965.231ms
+benchSonicSync4k*1000: 1588.224ms
+benchCore*1000: 5851.959ms
+benchConsole*1000: 7605.713ms
 ```
 
 Note that sync mode without buffering is _slower_ than a Node Core WritableStream, however
