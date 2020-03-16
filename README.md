@@ -34,7 +34,7 @@ npm i sonic-boom
 'use strict'
 
 const SonicBoom = require('sonic-boom')
-const sonic = new SonicBoom(process.stdout.fd) // or '/path/to/destination'
+const sonic = new SonicBoom({ fd: process.stdout.fd }) // or { dest: '/path/to/destination' }
 
 for (var i = 0; i < 10; i++) {
   sonic.write('hello sonic\n')
@@ -43,22 +43,20 @@ for (var i = 0; i < 10; i++) {
 
 ## API
 
-### SonicBoom(String|Number, [minLength], [sync])
+### SonicBoom(opts) String|Number, [minLength], [sync])
 
 Creates a new instance of SonicBoom.
 
-The first argument can be:
+The options are:
 
-1. a string that is a path to a file to be written to (mode `'a'`)
-2. a file descriptor, something that is returned by `fs.open` or
+* `fd`: a file descriptor, something that is returned by `fs.open` or
    `fs.openSync`.
+* `dest`: a string that is a path to a file to be written to (mode `'a'`).
+* `minLength`: the minimum lenght of the internal buffer that is
+  required to be full before flushing.
+* `sync`: perform writes synchronously (similar to `console.log`).
 
-The second argument is the minimum length of the internal buffer that is
-required before flushing.
-
-The third argument is a flag that, when true, causes `SonicBoom` to perform synchronous writes.
-
-It will emit the `'ready'` event when a file descriptor is available.
+A `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available.
 
 ### SonicBoom#write(string)
 

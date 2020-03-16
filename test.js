@@ -44,7 +44,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, sync)
+    const stream = new SonicBoom({ fd, sync })
 
     stream.on('ready', () => {
       t.pass('ready emitted')
@@ -71,7 +71,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, sync)
+    const stream = new SonicBoom({ fd, sync })
 
     t.ok(stream.write('hello world\n'))
 
@@ -104,7 +104,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, sync)
+    const stream = new SonicBoom({ fd, sync })
     const source = fs.createReadStream(__filename)
 
     source.pipe(stream)
@@ -127,7 +127,7 @@ function buildTests (test, sync) {
     t.plan(6)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 0, sync)
+    const stream = new SonicBoom({ dest, sync })
 
     stream.on('ready', () => {
       t.pass('ready emitted')
@@ -154,7 +154,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 4096, sync)
+    const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -178,7 +178,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, sync)
+    const stream = new SonicBoom({ fd, sync })
 
     t.ok(stream.write('hello world\n'))
     stream.destroy()
@@ -202,7 +202,7 @@ function buildTests (test, sync) {
     t.plan(1)
 
     const dest = file()
-    const stream = new SonicBoom(dest)
+    const stream = new SonicBoom({ dest })
 
     stream.destroy()
     stream.on('close', () => {
@@ -214,7 +214,7 @@ function buildTests (test, sync) {
     t.plan(8)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 4096, sync)
+    const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
     stream.on('ready', () => {
       t.pass('ready emitted')
@@ -254,7 +254,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 4096, sync)
+    const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     stream.on('ready', () => {
       t.pass('ready emitted')
@@ -278,7 +278,7 @@ function buildTests (test, sync) {
     t.plan(9)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 0, sync)
+    const stream = new SonicBoom({ dest, sync })
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -314,7 +314,7 @@ function buildTests (test, sync) {
     t.plan(9)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 4096, sync)
+    const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -352,7 +352,7 @@ function buildTests (test, sync) {
     t.plan(3)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 0, sync)
+    const stream = new SonicBoom({ dest, sync })
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -369,7 +369,7 @@ function buildTests (test, sync) {
     t.plan(4)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 4096, sync)
+    const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
     stream.once('ready', () => {
       t.pass('ready emitted')
@@ -391,7 +391,7 @@ function buildTests (test, sync) {
     t.plan(4)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 4096, sync)
+    const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
     stream.once('ready', () => {
       t.pass('ready emitted')
@@ -414,7 +414,7 @@ function buildTests (test, sync) {
     t.plan(3)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 4096, sync)
+    const stream = new SonicBoom({ dest, minLength: 4096, sync })
     const after = dest + '-moved'
     stream.reopen(after)
     stream.write('after reopen\n')
@@ -432,7 +432,7 @@ function buildTests (test, sync) {
     t.plan(9)
 
     const dest = file()
-    const stream = new SonicBoom(dest, 0, sync)
+    const stream = new SonicBoom({ dest, minLength: 0, sync })
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -502,7 +502,7 @@ test('retry on EAGAIN', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, false)
+  const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
 
   stream.on('ready', () => {
     t.pass('ready emitted')
@@ -541,7 +541,7 @@ test('retry on EAGAIN (sync)', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, true)
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
   stream.on('ready', () => {
     t.pass('ready emitted')
@@ -581,7 +581,7 @@ test('write buffers that are not totally written', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, false)
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
   stream.on('ready', () => {
     t.pass('ready emitted')
@@ -621,7 +621,7 @@ test('write buffers that are not totally written with sync mode', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, true)
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
   stream.on('ready', () => {
     t.pass('ready emitted')
@@ -657,7 +657,7 @@ test('sync writing is fully sync', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, true)
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
 
@@ -679,7 +679,7 @@ if (process.versions.node.indexOf('6.') !== 0) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, false)
+    const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
     const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
     let length = 0
@@ -707,7 +707,7 @@ if (process.versions.node.indexOf('6.') !== 0) {
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom(fd, 0, true)
+    const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
     const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
     let length = 0
@@ -736,7 +736,7 @@ test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom(fd, 0, true)
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
   let buf = Buffer.alloc((1024 * 16) - 2).fill('x') // 16MB - 3B
   const length = buf.length + 4
