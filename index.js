@@ -45,10 +45,14 @@ function openFile (file, sonic) {
   })
 }
 
-function SonicBoom (fd, minLength, sync) {
+function SonicBoom (opts) {
   if (!(this instanceof SonicBoom)) {
-    return new SonicBoom(fd, minLength, sync)
+    return new SonicBoom(opts)
   }
+
+  var { fd, dest, minLength, sync } = opts || {}
+
+  fd = fd || dest
 
   this._buf = ''
   this.fd = -1

@@ -2,7 +2,7 @@
 
 const SonicBoom = require('..')
 
-const out = new SonicBoom(process.stdout.fd)
+const out = new SonicBoom({ fd: process.stdout.fd })
 const str = Buffer.alloc(1000).fill('a').toString()
 
 let i = 0
