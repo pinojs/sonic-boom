@@ -43,7 +43,7 @@ for (var i = 0; i < 10; i++) {
 
 ## API
 
-### SonicBoom(opts) String|Number, [minLength], [sync])
+### SonicBoom(opts)
 
 Creates a new instance of SonicBoom.
 
