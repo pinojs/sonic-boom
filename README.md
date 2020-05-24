@@ -90,7 +90,7 @@ Flushes the buffered data synchronously. This is a costly operation.
 
 Closes the stream, the data will be flushed down asynchronously
 
-### SonicBook#destroy()
+### SonicBoom#destroy()
 
 Closes the stream immediately, the data is not flushed.
 
