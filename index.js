@@ -21,6 +21,9 @@ function openFile (file, sonic) {
   sonic._writing = true
   sonic.file = file
 
+  // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
+  // for sync mode, there is no way to add a listener that will receive these
+
   function fileOpened (err, fd) {
     if (err) {
       sonic.emit('error', err)
