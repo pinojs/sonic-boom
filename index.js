@@ -20,7 +20,8 @@ function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
   sonic.file = file
-  fs.open(file, 'a', (err, fd) => {
+
+  function fileOpened (err, fd) {
     if (err) {
       sonic.emit('error', err)
       return
@@ -42,7 +43,14 @@ function openFile (file, sonic) {
     if (len > 0 && len > sonic.minLength && !sonic.destroyed) {
       actualWrite(sonic)
     }
-  })
+  }
+
+  if (sonic.sync) {
+    const fd = fs.openSync(file, 'a')
+    fileOpened(null, fd)
+  } else {
+    fs.open(file, 'a', fileOpened)
+  }
 }
 
 function SonicBoom (opts) {

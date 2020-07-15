@@ -46,9 +46,15 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync })
 
-    stream.on('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.on('ready', onReady)
+    }
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -129,9 +135,15 @@ function buildTests (test, sync) {
     const dest = file()
     const stream = new SonicBoom({ dest, sync })
 
-    stream.on('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.on('ready', onReady)
+    }
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -216,9 +228,15 @@ function buildTests (test, sync) {
     const dest = file()
     const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
-    stream.on('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.on('ready', onReady)
+    }
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -256,9 +274,15 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
-    stream.on('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.on('ready', onReady)
+    }
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -291,22 +315,29 @@ function buildTests (test, sync) {
       fs.renameSync(dest, after)
       stream.reopen()
 
-      stream.once('ready', () => {
-        t.pass('ready emitted')
-        t.ok(stream.write('after reopen\n'))
-
-        stream.on('drain', () => {
-          fs.readFile(after, 'utf8', (err, data) => {
+      const onDrain = () => {
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+          fs.readFile(dest, 'utf8', (err, data) => {
             t.error(err)
-            t.equal(data, 'hello world\nsomething else\n')
-            fs.readFile(dest, 'utf8', (err, data) => {
-              t.error(err)
-              t.equal(data, 'after reopen\n')
-              stream.end()
-            })
+            t.equal(data, 'after reopen\n')
+            stream.end()
           })
         })
-      })
+      }
+
+      const onReady = () => {
+        t.pass('ready emitted')
+        t.ok(stream.write('after reopen\n'))
+        stream.on('drain', onDrain)
+      }
+
+      stream.once('ready', onReady)
+
+      if (sync) {
+        onReady()
+      }
     })
   })
 
@@ -321,31 +352,43 @@ function buildTests (test, sync) {
 
     const after = dest + '-moved'
 
-    stream.once('ready', () => {
+    const innerOnReady = () => {
+      t.pass('ready emitted')
+      t.ok(stream.write('after reopen\n'))
+      stream.flush()
+
+      stream.on('drain', () => {
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+          fs.readFile(dest, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'after reopen\n')
+            stream.end()
+          })
+        })
+      })
+    }
+
+    const onReady = () => {
       t.pass('drain emitted')
 
       stream.flush()
       fs.renameSync(dest, after)
       stream.reopen()
 
-      stream.once('ready', () => {
-        t.pass('ready emitted')
-        t.ok(stream.write('after reopen\n'))
-        stream.flush()
+      if (sync) {
+        innerOnReady()
+      } else {
+        stream.once('ready', innerOnReady)
+      }
+    }
 
-        stream.on('drain', () => {
-          fs.readFile(after, 'utf8', (err, data) => {
-            t.error(err)
-            t.equal(data, 'hello world\nsomething else\n')
-            fs.readFile(dest, 'utf8', (err, data) => {
-              t.error(err)
-              t.equal(data, 'after reopen\n')
-              stream.end()
-            })
-          })
-        })
-      })
-    })
+    if (sync) {
+      onReady()
+    } else {
+      stream.once('ready', onReady)
+    }
   })
 
   test('reopen if not open', (t) => {
@@ -370,8 +413,7 @@ function buildTests (test, sync) {
 
     const dest = file()
     const stream = new SonicBoom({ dest, minLength: 4096, sync })
-
-    stream.once('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
       const after = dest + '-moved'
       stream.reopen(after)
@@ -384,7 +426,13 @@ function buildTests (test, sync) {
         })
       })
       stream.end()
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.once('ready', onReady)
+    }
   })
 
   test('end after 2x reopen', (t) => {
@@ -393,7 +441,7 @@ function buildTests (test, sync) {
     const dest = file()
     const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
-    stream.once('ready', () => {
+    const onReady = () => {
       t.pass('ready emitted')
       stream.reopen(dest + '-moved')
       const after = dest + '-moved-moved'
@@ -407,7 +455,13 @@ function buildTests (test, sync) {
         })
       })
       stream.end()
-    })
+    }
+
+    if (sync) {
+      onReady()
+    } else {
+      stream.once('ready', onReady)
+    }
   })
 
   test('end if not ready', (t) => {
@@ -443,8 +497,7 @@ function buildTests (test, sync) {
       t.pass('drain emitted')
 
       stream.reopen(after)
-
-      stream.once('ready', () => {
+      const onReady = () => {
         t.pass('ready emitted')
         t.ok(stream.write('after reopen\n'))
 
@@ -459,7 +512,13 @@ function buildTests (test, sync) {
             })
           })
         })
-      })
+      }
+
+      if (sync) {
+        onReady()
+      } else {
+        stream.once('ready', onReady)
+      }
     })
   })
 
@@ -525,7 +584,7 @@ test('retry on EAGAIN', (t) => {
 })
 
 test('retry on EAGAIN (sync)', (t) => {
-  t.plan(7)
+  t.plan(6)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc, cb) {
@@ -542,10 +601,6 @@ test('retry on EAGAIN (sync)', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
-
-  stream.on('ready', () => {
-    t.pass('ready emitted')
-  })
 
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
@@ -582,7 +637,6 @@ test('write buffers that are not totally written', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: false })
-
   stream.on('ready', () => {
     t.pass('ready emitted')
   })
@@ -604,7 +658,7 @@ test('write buffers that are not totally written', (t) => {
 })
 
 test('write buffers that are not totally written with sync mode', (t) => {
-  t.plan(9)
+  t.plan(8)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc) {
@@ -622,10 +676,6 @@ test('write buffers that are not totally written with sync mode', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
-
-  stream.on('ready', () => {
-    t.pass('ready emitted')
-  })
 
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))

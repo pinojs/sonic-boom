@@ -57,7 +57,8 @@ The options are:
   required to be full before flushing.
 * `sync`: perform writes synchronously (similar to `console.log`).
 
-A `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available.
+For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available. 
+For `sync:true` the file descriptor will be available when the instance is created, before the `ready` event is fired. 
 
 ### SonicBoom#write(string)
 
