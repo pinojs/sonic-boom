@@ -48,6 +48,7 @@ function openFile (file, sonic) {
   if (sonic.sync) {
     const fd = fs.openSync(file, 'a')
     fileOpened(null, fd)
+    process.nextTick(() => sonic.emit('ready'))
   } else {
     fs.open(file, 'a', fileOpened)
   }
