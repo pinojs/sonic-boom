@@ -58,7 +58,8 @@ The options are:
 * `sync`: perform writes synchronously (similar to `console.log`).
 
 For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available. 
-For `sync:true` the file descriptor will be available when the instance is created, before the `ready` event is fired. 
+For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to. 
+   
 
 ### SonicBoom#write(string)
 
