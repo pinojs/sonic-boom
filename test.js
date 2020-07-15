@@ -50,11 +50,7 @@ function buildTests (test, sync) {
       t.pass('ready emitted')
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.on('ready', onReady)
-    }
+    stream.on('ready', onReady)
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -139,11 +135,7 @@ function buildTests (test, sync) {
       t.pass('ready emitted')
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.on('ready', onReady)
-    }
+    stream.on('ready', onReady)
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -232,11 +224,7 @@ function buildTests (test, sync) {
       t.pass('ready emitted')
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.on('ready', onReady)
-    }
+    stream.on('ready', onReady)
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -278,11 +266,7 @@ function buildTests (test, sync) {
       t.pass('ready emitted')
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.on('ready', onReady)
-    }
+    stream.on('ready', onReady)
 
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
@@ -334,10 +318,6 @@ function buildTests (test, sync) {
       }
 
       stream.once('ready', onReady)
-
-      if (sync) {
-        onReady()
-      }
     })
   })
 
@@ -377,18 +357,10 @@ function buildTests (test, sync) {
       fs.renameSync(dest, after)
       stream.reopen()
 
-      if (sync) {
-        innerOnReady()
-      } else {
-        stream.once('ready', innerOnReady)
-      }
+      stream.once('ready', innerOnReady)
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.once('ready', onReady)
-    }
+    stream.once('ready', onReady)
   })
 
   test('reopen if not open', (t) => {
@@ -428,11 +400,7 @@ function buildTests (test, sync) {
       stream.end()
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.once('ready', onReady)
-    }
+    stream.once('ready', onReady)
   })
 
   test('end after 2x reopen', (t) => {
@@ -457,11 +425,7 @@ function buildTests (test, sync) {
       stream.end()
     }
 
-    if (sync) {
-      onReady()
-    } else {
-      stream.once('ready', onReady)
-    }
+    stream.once('ready', onReady)
   })
 
   test('end if not ready', (t) => {
@@ -514,11 +478,7 @@ function buildTests (test, sync) {
         })
       }
 
-      if (sync) {
-        onReady()
-      } else {
-        stream.once('ready', onReady)
-      }
+      stream.once('ready', onReady)
     })
   })
 
