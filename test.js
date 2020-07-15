@@ -760,3 +760,14 @@ test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
     t.pass('close emitted')
   })
 })
+
+// for context see this issue https://github.com/pinojs/pino/issues/871
+test('file specified by dest path available immediately when options.sync is true', (t) => {
+  t.plan(3)
+  const dest = file()
+  const stream = new SonicBoom({ dest, sync: true })
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+  stream.flushSync()
+  t.pass('file opened and written to without error')
+})
