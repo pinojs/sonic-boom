@@ -73,8 +73,6 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync })
 
-    t.ok(stream.write('hello world\n'))
-
     stream.once('drain', () => {
       fs.readFile(dest, 'utf8', (err, data) => {
         t.error(err)
@@ -90,6 +88,8 @@ function buildTests (test, sync) {
         })
       })
     })
+
+    t.ok(stream.write('hello world\n'))
 
     stream.on('finish', () => {
       t.pass('finish emitted')

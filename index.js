@@ -19,6 +19,7 @@ const MAX_WRITE = 16 * 1024 * 1024
 function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
+  sonic._asyncDrainScheduled = false
   sonic.file = file
 
   // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
@@ -164,9 +165,17 @@ function SonicBoom (opts) {
       }
     }
   }
+
+  this.on('newListener', function (name) {
+    if (name === 'drain') {
+      this._asyncDrainScheduled = false
+    }
+  })
 }
 
 function emitDrain (sonic) {
+  const hasListeners = sonic.listenerCount('drain') > 0
+  if (!hasListeners) return
   sonic._asyncDrainScheduled = false
   sonic.emit('drain')
 }
