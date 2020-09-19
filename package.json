@@ -16,7 +16,7 @@
     "fixtures"
   ],
   "scripts": {
-    "test": "test:types && standard && tap --no-ts --no-jsx --no-esm -t 120 test.js",
+    "test": "npm run test:types && standard && tap --no-ts --no-jsx --no-esm -t 120 test.js",
     "test:types": "tsc && tsd"
   },
   "repository": {
