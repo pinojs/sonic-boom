@@ -5,16 +5,6 @@
   "main": "index.js",
   "type": "commonjs",
   "types": "types/index.d.ts",
-  "files": [
-    "bench.js.js",
-    "check.js.js",
-    "example.js",
-    "index.js",
-    "types/index.d.ts",
-    "LICENSE",
-    "test.js",
-    "fixtures"
-  ],
   "scripts": {
     "test": "npm run test:types && standard && tap --no-ts --no-jsx --no-esm -t 120 test.js",
     "test:types": "tsc && tsd"
