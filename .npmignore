@@ -1,0 +1,10 @@
+.editorconfig
+.gitattributes
+.git
+.DS_Store
+.gitignore
+.github
+.dependabot
+.clinic
+tsconfig.json
+types/index.test-d.ts
