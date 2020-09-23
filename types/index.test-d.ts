@@ -1,5 +1,8 @@
 import SonicBoom from '../';
+import * as SonicBoomStar from "../";
 const sonic = new SonicBoom(1);
+const sonic3 = new SonicBoomStar.SonicBoom(1)
+const sonic4 = new SonicBoomStar.default(1)
 
 sonic.write('hello sonic\n');
 
