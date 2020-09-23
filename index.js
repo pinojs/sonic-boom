@@ -341,7 +341,7 @@ function actualClose (sonic) {
 
 /**
  * These export configurations enable JS and TS developers
- * to consumer fastify in whatever way best suits their needs.
+ * to consumer SonicBoom in whatever way best suits their needs.
  * Some examples of supported import syntax includes:
  * - `const SonicBoom = require('SonicBoom')`
  * - `const { SonicBoom } = require('SonicBoom')`
