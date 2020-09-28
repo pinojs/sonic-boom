@@ -43,7 +43,7 @@ function openFile (file, sonic) {
     }
 
     // start
-    var len = sonic._buf.length
+    const len = sonic._buf.length
     if (len > 0 && len > sonic.minLength && !sonic.destroyed) {
       actualWrite(sonic)
     }
@@ -63,7 +63,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  var { fd, dest, minLength, sync } = opts || {}
+  let { fd, dest, minLength, sync } = opts || {}
 
   fd = fd || dest
 
@@ -139,7 +139,7 @@ function SonicBoom (opts) {
       return
     }
 
-    var len = this._buf.length
+    const len = this._buf.length
     if (this._reopening) {
       this._writing = false
       this._reopening = false
@@ -188,11 +188,11 @@ SonicBoom.prototype.write = function (data) {
   }
 
   this._buf += data
-  var len = this._buf.length
+  const len = this._buf.length
   if (!this._writing && len > this.minLength) {
     actualWrite(this)
   }
-  return len < 16384
+  return len < MAX_WRITE
 }
 
 SonicBoom.prototype.flush = function () {
@@ -296,8 +296,8 @@ SonicBoom.prototype.destroy = function () {
 
 function actualWrite (sonic) {
   sonic._writing = true
-  var buf = sonic._buf
-  var release = sonic.release
+  let buf = sonic._buf
+  const release = sonic.release
   if (buf.length > MAX_WRITE) {
     buf = buf.slice(0, MAX_WRITE)
     sonic._buf = sonic._buf.slice(MAX_WRITE)
@@ -308,7 +308,7 @@ function actualWrite (sonic) {
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
-      var written = fs.writeSync(sonic.fd, buf, 'utf8')
+      const written = fs.writeSync(sonic.fd, buf, 'utf8')
       release(null, written)
     } catch (err) {
       release(err)

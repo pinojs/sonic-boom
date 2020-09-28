@@ -10,7 +10,7 @@ const proxyquire = require('proxyquire')
 const SonicBoom = require('.')
 
 const files = []
-var count = 0
+let count = 0
 
 function file () {
   const file = path.join(os.tmpdir(), `sonic-boom-${process.pid}-${process.hrtime().toString()}-${count++}`)
@@ -223,7 +223,7 @@ function buildTests (test, sync) {
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
 
-    var fail = t.fail
+    const fail = t.fail
     stream.on('drain', fail)
 
     // bad use of timer
