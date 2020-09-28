@@ -192,7 +192,7 @@ SonicBoom.prototype.write = function (data) {
   if (!this._writing && len > this.minLength) {
     actualWrite(this)
   }
-  return len < MAX_WRITE
+  return len < 16384
 }
 
 SonicBoom.prototype.flush = function () {
