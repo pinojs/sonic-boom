@@ -684,7 +684,7 @@ if (process.versions.node.indexOf('6.') !== 0) {
     const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
     let length = 0
 
-    for (let i = 0; i < 1024 * 1024; i++) {
+    for (let i = 0; i < 512 * 1024; i++) {
       length += buf.length
       stream.write(buf)
     }
