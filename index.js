@@ -281,9 +281,17 @@ SonicBoom.prototype.flushSync = function () {
     throw new Error('sonic boom is not ready yet')
   }
 
-  if (this._buf.length > 0) {
-    fs.writeSync(this.fd, this._buf, 'utf8')
-    this._buf = ''
+  while (this._buf.length > 0) {
+    try {
+      fs.writeSync(this.fd, this._buf, 'utf8')
+      this._buf = ''
+    } catch (err) {
+      sleep(BUSY_WRITE_TIMEOUT)
+
+      if (err.code !== 'EAGAIN') {
+        throw err
+      }
+    }
   }
 }
 
