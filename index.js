@@ -286,11 +286,11 @@ SonicBoom.prototype.flushSync = function () {
       fs.writeSync(this.fd, this._buf, 'utf8')
       this._buf = ''
     } catch (err) {
-      sleep(BUSY_WRITE_TIMEOUT)
-
       if (err.code !== 'EAGAIN') {
         throw err
       }
+
+      sleep(BUSY_WRITE_TIMEOUT)
     }
   }
 }
