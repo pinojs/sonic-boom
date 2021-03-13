@@ -110,6 +110,11 @@ function SonicBoom (opts) {
           }, BUSY_WRITE_TIMEOUT)
         }
       } else {
+        // The error maybe recoverable later, so just put data back to this._buf
+        this._buf = this._writingBuf + this._buf
+        this._writingBuf = ''
+        this._writing = false
+
         this.emit('error', err)
       }
       return

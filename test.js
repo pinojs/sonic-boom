@@ -483,6 +483,61 @@ function buildTests (test, sync) {
       t.is(code, 0)
     })
   })
+
+  test('write later on recoverable error', (t) => {
+    t.plan(8)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('.', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 0, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+    stream.on('error', () => {
+      t.pass('error emitted')
+    })
+
+    if (sync) {
+      fakeFs.writeSync = function (fd, buf, enc) {
+        t.pass('fake fs.writeSync called')
+        throw new Error('recoverable error')
+      }
+    } else {
+      fakeFs.write = function (fd, buf, enc, cb) {
+        t.pass('fake fs.write called')
+        setTimeout(() => cb(new Error('recoverable error')), 0)
+      }
+    }
+
+    t.ok(stream.write('hello world\n'))
+
+    setTimeout(() => {
+      if (sync) {
+        fakeFs.writeSync = fs.writeSync
+      } else {
+        fakeFs.write = fs.write
+      }
+
+      t.ok(stream.write('something else\n'))
+
+      stream.end()
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+        })
+      })
+      stream.on('close', () => {
+        t.pass('close emitted')
+      })
+    }, 0)
+  })
 }
 
 test('retry on EAGAIN', (t) => {
