@@ -20,23 +20,35 @@ function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
   sonic._asyncDrainScheduled = false
-  sonic.file = file
 
   // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
   // for sync mode, there is no way to add a listener that will receive these
 
   function fileOpened (err, fd) {
     if (err) {
-      sonic.emit('error', err)
+      sonic._reopening = false
+      sonic._writing = false
+      sonic._opening = false
+
+      if (sonic.sync) {
+        process.nextTick(() => sonic.emit('error', err))
+      } else {
+        sonic.emit('error', err)
+      }
       return
     }
 
     sonic.fd = fd
+    sonic.file = file
     sonic._reopening = false
     sonic._opening = false
     sonic._writing = false
 
-    sonic.emit('ready')
+    if (sonic.sync) {
+      process.nextTick(() => sonic.emit('ready'))
+    } else {
+      sonic.emit('ready')
+    }
 
     if (sonic._reopening) {
       return
@@ -50,9 +62,13 @@ function openFile (file, sonic) {
   }
 
   if (sonic.sync) {
-    const fd = fs.openSync(file, 'a')
-    fileOpened(null, fd)
-    process.nextTick(() => sonic.emit('ready'))
+    try {
+      const fd = fs.openSync(file, 'a')
+      fileOpened(null, fd)
+    } catch (err) {
+      fileOpened(err)
+      throw err
+    }
   } else {
     fs.open(file, 'a', fileOpened)
   }
@@ -238,9 +254,14 @@ SonicBoom.prototype.reopen = function (file) {
     return
   }
 
-  fs.close(this.fd, (err) => {
-    if (err) {
-      return this.emit('error', err)
+  const fd = this.fd
+  this.once('ready', () => {
+    if (fd !== this.fd) {
+      fs.close(fd, (err) => {
+        if (err) {
+          return this.emit('error', err)
+        }
+      })
     }
   })
 
