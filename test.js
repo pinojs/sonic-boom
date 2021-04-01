@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, tearDown } = require('tap')
+const { test, teardown } = require('tap')
 const { join } = require('path')
 const { fork } = require('child_process')
 const fs = require('fs')
@@ -18,7 +18,7 @@ function file () {
   return file
 }
 
-tearDown(() => {
+teardown(() => {
   files.forEach((file) => {
     try {
       if (fs.existsSync(file)) {
@@ -478,7 +478,7 @@ function buildTests (test, sync) {
     })
 
     child.stdout.on('end', function () {
-      t.is(data, str)
+      t.equal(data, str)
     })
 
     child.on('close', function (code) {
