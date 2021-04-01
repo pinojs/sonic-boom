@@ -933,3 +933,14 @@ test('file specified by dest path available immediately when options.sync is tru
   stream.flushSync()
   t.pass('file opened and written to without error')
 })
+
+test('sync error handling', (t) => {
+  t.plan(1)
+  try {
+    /* eslint no-new: off */
+    new SonicBoom({ dest: '/path/to/nowwhere', sync: true })
+    t.fail('must throw synchronously')
+  } catch (err) {
+    t.pass('an error happened')
+  }
+})
