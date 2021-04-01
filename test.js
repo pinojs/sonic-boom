@@ -482,7 +482,7 @@ function buildTests (test, sync) {
     })
 
     child.on('close', function (code) {
-      t.is(code, 0)
+      t.equal(code, 0)
     })
   })
 
