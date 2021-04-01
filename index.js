@@ -31,7 +31,11 @@ function openFile (file, sonic) {
       sonic._opening = false
 
       if (sonic.sync) {
-        process.nextTick(() => sonic.emit('error', err))
+        process.nextTick(() => {
+          if (sonic.listenerCount('error') > 0) {
+            sonic.emit('error', err)
+          }
+        })
       } else {
         sonic.emit('error', err)
       }
