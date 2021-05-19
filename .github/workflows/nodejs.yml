@@ -47,7 +47,7 @@ jobs:
     - run: node --version
     - run: npm --version
     - run: npm install --ignore-scripts
-    - run: npm run test-only
+    - run: npm run test:unit
       env:
         CI: true
 
