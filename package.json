@@ -1,13 +1,15 @@
 {
   "name": "sonic-boom",
-  "version": "1.3.0",
+  "version": "1.4.1",
   "description": "Extremely fast utf8 only stream implementation",
   "main": "index.js",
   "type": "commonjs",
   "types": "types/index.d.ts",
   "scripts": {
-    "test": "npm run test:types && standard && tap --no-ts --no-jsx --no-esm -t 120 test.js",
-    "test:types": "tsc && tsd"
+    "test-only": "tap test.js",
+    "test": "npm run test:types && standard && tap test.js",
+    "test:types": "tsc && tsd",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -31,10 +33,10 @@
   "devDependencies": {
     "@types/node": "^14.11.1",
     "fastbench": "^1.0.1",
-    "husky": "^4.3.0",
+    "husky": "^6.0.0",
     "proxyquire": "^2.1.0",
-    "standard": "^14.0.0",
-    "tap": "^14.10.8",
+    "standard": "^16.0.3",
+    "tap": "^15.0.1",
     "tsd": "^0.13.1",
     "typescript": "^4.0.3"
   },
