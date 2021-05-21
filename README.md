@@ -1,4 +1,9 @@
-# sonic-boom&nbsp;&nbsp;![Node.js CI](https://github.com/mcollina/sonic-boom/workflows/Node.js%20CI/badge.svg)
+# sonic-boom
+
+[![NPM Package Version](https://img.shields.io/npm/v/sonic-boom)](https://www.npmjs.com/package/sonic-boom)
+[![Build Status](https://github.com/pinojs/sonic-boom/workflows/Node.js%20CI/badge.svg)](https://github.com/pinojs/sonic-boom/actions?query=workflow%3ANode.js%20CI)
+[![Known Vulnerabilities](https://snyk.io/test/github/pinojs/sonic-boom/badge.svg)](https://snyk.io/test/github/pinojs/sonic-boom)
+[![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://standardjs.com/)
 
 Extremely fast utf8-only stream implementation to write to files and
 file descriptors.
