@@ -8,3 +8,4 @@
 .clinic
 tsconfig.json
 types/index.test-d.ts
+.nyc_output
