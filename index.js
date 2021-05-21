@@ -2,7 +2,6 @@
 
 const fs = require('fs')
 const EventEmitter = require('events')
-const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
 const BUSY_WRITE_TIMEOUT = 100
@@ -20,39 +19,59 @@ function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
   sonic._asyncDrainScheduled = false
-  sonic.file = file
 
   // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
   // for sync mode, there is no way to add a listener that will receive these
 
   function fileOpened (err, fd) {
     if (err) {
-      sonic.emit('error', err)
+      sonic._reopening = false
+      sonic._writing = false
+      sonic._opening = false
+
+      if (sonic.sync) {
+        process.nextTick(() => {
+          if (sonic.listenerCount('error') > 0) {
+            sonic.emit('error', err)
+          }
+        })
+      } else {
+        sonic.emit('error', err)
+      }
       return
     }
 
     sonic.fd = fd
+    sonic.file = file
     sonic._reopening = false
     sonic._opening = false
     sonic._writing = false
 
-    sonic.emit('ready')
+    if (sonic.sync) {
+      process.nextTick(() => sonic.emit('ready'))
+    } else {
+      sonic.emit('ready')
+    }
 
     if (sonic._reopening) {
       return
     }
 
     // start
-    var len = sonic._buf.length
+    const len = sonic._buf.length
     if (len > 0 && len > sonic.minLength && !sonic.destroyed) {
       actualWrite(sonic)
     }
   }
 
   if (sonic.sync) {
-    const fd = fs.openSync(file, 'a')
-    fileOpened(null, fd)
-    process.nextTick(() => sonic.emit('ready'))
+    try {
+      const fd = fs.openSync(file, 'a')
+      fileOpened(null, fd)
+    } catch (err) {
+      fileOpened(err)
+      throw err
+    }
   } else {
     fs.open(file, 'a', fileOpened)
   }
@@ -63,7 +82,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  var { fd, dest, minLength, sync } = opts || {}
+  let { fd, dest, minLength, sync } = opts || {}
 
   fd = fd || dest
 
@@ -110,6 +129,11 @@ function SonicBoom (opts) {
           }, BUSY_WRITE_TIMEOUT)
         }
       } else {
+        // The error maybe recoverable later, so just put data back to this._buf
+        this._buf = this._writingBuf + this._buf
+        this._writingBuf = ''
+        this._writing = false
+
         this.emit('error', err)
       }
       return
@@ -139,7 +163,7 @@ function SonicBoom (opts) {
       return
     }
 
-    var len = this._buf.length
+    const len = this._buf.length
     if (this._reopening) {
       this._writing = false
       this._reopening = false
@@ -188,7 +212,7 @@ SonicBoom.prototype.write = function (data) {
   }
 
   this._buf += data
-  var len = this._buf.length
+  const len = this._buf.length
   if (!this._writing && len > this.minLength) {
     actualWrite(this)
   }
@@ -233,9 +257,14 @@ SonicBoom.prototype.reopen = function (file) {
     return
   }
 
-  fs.close(this.fd, (err) => {
-    if (err) {
-      return this.emit('error', err)
+  const fd = this.fd
+  this.once('ready', () => {
+    if (fd !== this.fd) {
+      fs.close(fd, (err) => {
+        if (err) {
+          return this.emit('error', err)
+        }
+      })
     }
   })
 
@@ -281,9 +310,17 @@ SonicBoom.prototype.flushSync = function () {
     throw new Error('sonic boom is not ready yet')
   }
 
-  if (this._buf.length > 0) {
-    fs.writeSync(this.fd, this._buf, 'utf8')
-    this._buf = ''
+  while (this._buf.length > 0) {
+    try {
+      fs.writeSync(this.fd, this._buf, 'utf8')
+      this._buf = ''
+    } catch (err) {
+      if (err.code !== 'EAGAIN') {
+        throw err
+      }
+
+      sleep(BUSY_WRITE_TIMEOUT)
+    }
   }
 }
 
@@ -296,19 +333,18 @@ SonicBoom.prototype.destroy = function () {
 
 function actualWrite (sonic) {
   sonic._writing = true
-  var buf = sonic._buf
-  var release = sonic.release
+  let buf = sonic._buf
+  const release = sonic.release
   if (buf.length > MAX_WRITE) {
     buf = buf.slice(0, MAX_WRITE)
     sonic._buf = sonic._buf.slice(MAX_WRITE)
   } else {
     sonic._buf = ''
   }
-  flatstr(buf)
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
-      var written = fs.writeSync(sonic.fd, buf, 'utf8')
+      const written = fs.writeSync(sonic.fd, buf, 'utf8')
       release(null, written)
     } catch (err) {
       release(err)
@@ -339,4 +375,16 @@ function actualClose (sonic) {
   sonic._buf = ''
 }
 
+/**
+ * These export configurations enable JS and TS developers
+ * to consumer SonicBoom in whatever way best suits their needs.
+ * Some examples of supported import syntax includes:
+ * - `const SonicBoom = require('SonicBoom')`
+ * - `const { SonicBoom } = require('SonicBoom')`
+ * - `import * as SonicBoom from 'SonicBoom'`
+ * - `import { SonicBoom } from 'SonicBoom'`
+ * - `import SonicBoom from 'SonicBoom'`
+ */
+SonicBoom.SonicBoom = SonicBoom
+SonicBoom.default = SonicBoom
 module.exports = SonicBoom

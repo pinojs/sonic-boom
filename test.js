@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, tearDown } = require('tap')
+const { test, teardown } = require('tap')
 const { join } = require('path')
 const { fork } = require('child_process')
 const fs = require('fs')
@@ -10,7 +10,7 @@ const proxyquire = require('proxyquire')
 const SonicBoom = require('.')
 
 const files = []
-var count = 0
+let count = 0
 
 function file () {
   const file = path.join(os.tmpdir(), `sonic-boom-${process.pid}-${process.hrtime().toString()}-${count++}`)
@@ -18,10 +18,12 @@ function file () {
   return file
 }
 
-tearDown(() => {
+teardown(() => {
   files.forEach((file) => {
     try {
-      fs.unlinkSync(file)
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file)
+      }
     } catch (e) {
       console.log(e)
     }
@@ -223,7 +225,7 @@ function buildTests (test, sync) {
     t.ok(stream.write('hello world\n'))
     t.ok(stream.write('something else\n'))
 
-    var fail = t.fail
+    const fail = t.fail
     stream.on('drain', fail)
 
     // bad use of timer
@@ -476,11 +478,129 @@ function buildTests (test, sync) {
     })
 
     child.stdout.on('end', function () {
-      t.is(data, str)
+      t.equal(data, str)
     })
 
     child.on('close', function (code) {
-      t.is(code, 0)
+      t.equal(code, 0)
+    })
+  })
+
+  test('write later on recoverable error', (t) => {
+    t.plan(8)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('.', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 0, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+    stream.on('error', () => {
+      t.pass('error emitted')
+    })
+
+    if (sync) {
+      fakeFs.writeSync = function (fd, buf, enc) {
+        t.pass('fake fs.writeSync called')
+        throw new Error('recoverable error')
+      }
+    } else {
+      fakeFs.write = function (fd, buf, enc, cb) {
+        t.pass('fake fs.write called')
+        setTimeout(() => cb(new Error('recoverable error')), 0)
+      }
+    }
+
+    t.ok(stream.write('hello world\n'))
+
+    setTimeout(() => {
+      if (sync) {
+        fakeFs.writeSync = fs.writeSync
+      } else {
+        fakeFs.write = fs.write
+      }
+
+      t.ok(stream.write('something else\n'))
+
+      stream.end()
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.error(err)
+          t.equal(data, 'hello world\nsomething else\n')
+        })
+      })
+      stream.on('close', () => {
+        t.pass('close emitted')
+      })
+    }, 0)
+  })
+
+  test('reopen throws an error', (t) => {
+    t.plan(sync ? 10 : 9)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('.', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const stream = new SonicBoom({ dest, sync })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    const after = dest + '-moved'
+
+    stream.on('error', () => {
+      t.pass('error emitted')
+    })
+
+    stream.once('drain', () => {
+      t.pass('drain emitted')
+
+      fs.renameSync(dest, after)
+      if (sync) {
+        fakeFs.openSync = function (file, flags) {
+          t.pass('fake fs.openSync called')
+          throw new Error('open error')
+        }
+      } else {
+        fakeFs.open = function (file, flags, cb) {
+          t.pass('fake fs.open called')
+          setTimeout(() => cb(new Error('open error')), 0)
+        }
+      }
+
+      if (sync) {
+        try {
+          stream.reopen()
+        } catch (err) {
+          t.pass('reopen throwed')
+        }
+      } else {
+        stream.reopen()
+      }
+
+      setTimeout(() => {
+        t.ok(stream.write('after reopen\n'))
+
+        stream.end()
+        stream.on('finish', () => {
+          fs.readFile(after, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'hello world\nsomething else\nafter reopen\n')
+          })
+        })
+        stream.on('close', () => {
+          t.pass('close emitted')
+        })
+      }, 0)
     })
   })
 }
@@ -550,6 +670,48 @@ test('retry on EAGAIN (sync)', (t) => {
   t.ok(stream.write('hello world\n'))
   t.ok(stream.write('something else\n'))
 
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('retry in flushSync on EAGAIN', (t) => {
+  t.plan(7)
+
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+
+  fakeFs.writeSync = function (fd, buf, enc) {
+    t.pass('fake fs.write called')
+    fakeFs.writeSync = fs.writeSync
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    throw err
+  }
+
+  t.ok(stream.write('something else\n'))
+
+  stream.flushSync()
   stream.end()
 
   stream.on('finish', () => {
@@ -684,7 +846,7 @@ if (process.versions.node.indexOf('6.') !== 0) {
     const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
     let length = 0
 
-    for (let i = 0; i < 1024 * 1024; i++) {
+    for (let i = 0; i < 1024 * 512; i++) {
       length += buf.length
       stream.write(buf)
     }
@@ -712,7 +874,7 @@ if (process.versions.node.indexOf('6.') !== 0) {
     const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
     let length = 0
 
-    for (let i = 0; i < 1024 * 1024; i++) {
+    for (let i = 0; i < 1024 * 512; i++) {
       length += buf.length
       stream.write(buf)
     }
@@ -770,4 +932,15 @@ test('file specified by dest path available immediately when options.sync is tru
   t.ok(stream.write('something else\n'))
   stream.flushSync()
   t.pass('file opened and written to without error')
+})
+
+test('sync error handling', (t) => {
+  t.plan(1)
+  try {
+    /* eslint no-new: off */
+    new SonicBoom({ dest: '/path/to/nowwhere', sync: true })
+    t.fail('must throw synchronously')
+  } catch (err) {
+    t.pass('an error happened')
+  }
 })

@@ -37,7 +37,7 @@ npm i sonic-boom
 const SonicBoom = require('sonic-boom')
 const sonic = new SonicBoom({ fd: process.stdout.fd }) // or { dest: '/path/to/destination' }
 
-for (var i = 0; i < 10; i++) {
+for (let i = 0; i < 10; i++) {
   sonic.write('hello sonic\n')
 }
 ```
