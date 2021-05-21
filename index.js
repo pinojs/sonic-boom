@@ -2,7 +2,6 @@
 
 const fs = require('fs')
 const EventEmitter = require('events')
-const flatstr = require('flatstr')
 const inherits = require('util').inherits
 
 const BUSY_WRITE_TIMEOUT = 100
@@ -342,7 +341,6 @@ function actualWrite (sonic) {
   } else {
     sonic._buf = ''
   }
-  flatstr(buf)
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
