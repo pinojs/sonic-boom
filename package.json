@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mcollina/sonic-boom.git"
+    "url": "git+https://github.com/pinojs/sonic-boom.git"
   },
   "keywords": [
     "stream",
@@ -27,9 +27,9 @@
   "author": "Matteo Collina <hello@matteocollina.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mcollina/sonic-boom/issues"
+    "url": "https://github.com/pinojs/sonic-boom/issues"
   },
-  "homepage": "https://github.com/mcollina/sonic-boom#readme",
+  "homepage": "https://github.com/pinojs/sonic-boom#readme",
   "devDependencies": {
     "@types/node": "^15.3.0",
     "fastbench": "^1.0.1",
