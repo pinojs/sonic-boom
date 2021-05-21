@@ -375,4 +375,16 @@ function actualClose (sonic) {
   sonic._buf = ''
 }
 
+/**
+ * These export configurations enable JS and TS developers
+ * to consumer SonicBoom in whatever way best suits their needs.
+ * Some examples of supported import syntax includes:
+ * - `const SonicBoom = require('SonicBoom')`
+ * - `const { SonicBoom } = require('SonicBoom')`
+ * - `import * as SonicBoom from 'SonicBoom'`
+ * - `import { SonicBoom } from 'SonicBoom'`
+ * - `import SonicBoom from 'SonicBoom'`
+ */
+SonicBoom.SonicBoom = SonicBoom
+SonicBoom.default = SonicBoom
 module.exports = SonicBoom
