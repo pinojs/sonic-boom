@@ -12,6 +12,7 @@ export type SonicBoomOpts = {
     minLength?: number
     sync?: boolean
     append?: boolean
+    mkdir?: boolean
 }
 
 export class SonicBoom extends EventEmitter {

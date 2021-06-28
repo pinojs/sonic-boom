@@ -275,6 +275,35 @@ function buildTests (test, sync) {
     })
   })
 
+  test('mkdir', (t) => {
+    t.plan(4)
+
+    const dest = path.join(file(), 'out.log')
+    const stream = new SonicBoom({ dest, mkdir: true, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\n')
+        stream.end()
+        // put file where teardown can access it
+        const { dir, base } = path.parse(dest)
+        const tmpDir = dir + '~'
+        fs.renameSync(dir, tmpDir)
+        fs.renameSync(path.join(tmpDir, base), dir)
+        fs.rmdirSync(tmpDir)
+      })
+    })
+  })
+
   test('flush', (t) => {
     t.plan(5)
 
