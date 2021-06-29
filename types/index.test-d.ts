@@ -29,6 +29,6 @@ sonic.end();
 
 sonic.destroy();
 
-const extraSonic = new SonicBoom({fd: 1, minLength: 0, sync: true});
+const extraSonic = new SonicBoom({fd: 1, minLength: 0, sync: true, append: true});
 
 extraSonic.write('extra sonic\n');

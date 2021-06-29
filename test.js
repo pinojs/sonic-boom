@@ -251,6 +251,30 @@ function buildTests (test, sync) {
     })
   })
 
+  test('append', (t) => {
+    t.plan(4)
+
+    const dest = file()
+    fs.writeFileSync(dest, 'hello world\n')
+    const stream = new SonicBoom({ dest, append: false, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('something else\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'something else\n')
+        stream.end()
+      })
+    })
+  })
+
   test('flush', (t) => {
     t.plan(5)
 

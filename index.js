@@ -66,14 +66,14 @@ function openFile (file, sonic) {
 
   if (sonic.sync) {
     try {
-      const fd = fs.openSync(file, 'a')
+      const fd = fs.openSync(file, sonic.append ? 'a' : 'w')
       fileOpened(null, fd)
     } catch (err) {
       fileOpened(err)
       throw err
     }
   } else {
-    fs.open(file, 'a', fileOpened)
+    fs.open(file, sonic.append ? 'a' : 'w', fileOpened)
   }
 }
 
@@ -82,7 +82,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, sync } = opts || {}
+  let { fd, dest, minLength, sync, append = true } = opts || {}
 
   fd = fd || dest
 
@@ -96,6 +96,7 @@ function SonicBoom (opts) {
   this.file = null
   this.destroyed = false
   this.sync = sync || false
+  this.append = append || false
 
   this.minLength = minLength || 0
 
