@@ -19,10 +19,11 @@ function file () {
 }
 
 teardown(() => {
+  const rmSync = fs.rmSync || fs.rmdirSync
   files.forEach((file) => {
     try {
       if (fs.existsSync(file)) {
-        fs.unlinkSync(file)
+        fs.statSync(file).isDirectory() ? rmSync(file, { recursive: true, maxRetries: 10 }) : fs.unlinkSync(file)
       }
     } catch (e) {
       console.log(e)
@@ -294,12 +295,6 @@ function buildTests (test, sync) {
         t.error(err)
         t.equal(data, 'hello world\n')
         stream.end()
-        // put file where teardown can access it
-        const { dir, base } = path.parse(dest)
-        const tmpDir = dir + '~'
-        fs.renameSync(dir, tmpDir)
-        fs.renameSync(path.join(tmpDir, base), dir)
-        fs.rmdirSync(tmpDir)
       })
     })
   })
