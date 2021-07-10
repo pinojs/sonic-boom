@@ -3,6 +3,7 @@
 const fs = require('fs')
 const EventEmitter = require('events')
 const inherits = require('util').inherits
+const path = require('path')
 
 const BUSY_WRITE_TIMEOUT = 100
 
@@ -64,16 +65,23 @@ function openFile (file, sonic) {
     }
   }
 
+  const mode = sonic.append ? 'a' : 'w'
   if (sonic.sync) {
     try {
-      const fd = fs.openSync(file, 'a')
+      if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
+      const fd = fs.openSync(file, mode)
       fileOpened(null, fd)
     } catch (err) {
       fileOpened(err)
       throw err
     }
+  } else if (sonic.mkdir) {
+    fs.mkdir(path.dirname(file), { recursive: true }, (err) => {
+      if (err) return fileOpened(err)
+      fs.open(file, mode, fileOpened)
+    })
   } else {
-    fs.open(file, 'a', fileOpened)
+    fs.open(file, mode, fileOpened)
   }
 }
 
@@ -82,7 +90,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, sync } = opts || {}
+  let { fd, dest, minLength, sync, append = true, mkdir } = opts || {}
 
   fd = fd || dest
 
@@ -95,9 +103,10 @@ function SonicBoom (opts) {
   this._asyncDrainScheduled = false
   this.file = null
   this.destroyed = false
-  this.sync = sync || false
-
   this.minLength = minLength || 0
+  this.sync = sync || false
+  this.append = append || false
+  this.mkdir = mkdir || false
 
   if (typeof fd === 'number') {
     this.fd = fd

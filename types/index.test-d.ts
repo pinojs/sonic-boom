@@ -6,16 +6,16 @@ import SonicBoomCjsImport = require ("../");
 const SonicBoomCjs = require("../");
 const { SonicBoom: SonicBoomCjsNamed } = require('SonicBoom')
 
-const sonic = new SonicBoom(1);
+const sonic = new SonicBoom({ fd: 1});
 
-expectType<SonicBoom>(new SonicBoomNamed(1));
-expectType<SonicBoom>( new SonicBoomDefault(1));
-expectType<SonicBoom>( new SonicBoomStar.SonicBoom(1));
-expectType<SonicBoom>( new SonicBoomStar.default(1));
-expectType<SonicBoom>( new SonicBoomCjsImport.SonicBoom(1));
-expectType<SonicBoom>( new SonicBoomCjsImport.default(1));
-expectType<any>( new SonicBoomCjs(1));
-expectType<any>( new SonicBoomCjsNamed(1));
+expectType<SonicBoom>(new SonicBoomNamed({ fd: 1}));
+expectType<SonicBoom>( new SonicBoomDefault({ fd: 1}));
+expectType<SonicBoom>( new SonicBoomStar.SonicBoom({ fd: 1}));
+expectType<SonicBoom>( new SonicBoomStar.default({ fd: 1}));
+expectType<SonicBoom>( new SonicBoomCjsImport.SonicBoom({ fd: 1}));
+expectType<SonicBoom>( new SonicBoomCjsImport.default({ fd: 1}));
+expectType<any>( new SonicBoomCjs({ fd: 1}));
+expectType<any>( new SonicBoomCjsNamed({ fd: 1}));
 
 sonic.write('hello sonic\n');
 
@@ -29,6 +29,6 @@ sonic.end();
 
 sonic.destroy();
 
-const extraSonic = new SonicBoom(1, 0, true);
+const extraSonic = new SonicBoom({fd: 1, minLength: 0, sync: true, append: true, mkdir: true});
 
 extraSonic.write('extra sonic\n');

@@ -19,10 +19,11 @@ function file () {
 }
 
 teardown(() => {
+  const rmSync = fs.rmSync || fs.rmdirSync
   files.forEach((file) => {
     try {
       if (fs.existsSync(file)) {
-        fs.unlinkSync(file)
+        fs.statSync(file).isDirectory() ? rmSync(file, { recursive: true, maxRetries: 10 }) : fs.unlinkSync(file)
       }
     } catch (e) {
       console.log(e)
@@ -248,6 +249,53 @@ function buildTests (test, sync) {
 
     stream.on('close', () => {
       t.pass('close emitted')
+    })
+  })
+
+  test('append', (t) => {
+    t.plan(4)
+
+    const dest = file()
+    fs.writeFileSync(dest, 'hello world\n')
+    const stream = new SonicBoom({ dest, append: false, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('something else\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'something else\n')
+        stream.end()
+      })
+    })
+  })
+
+  test('mkdir', (t) => {
+    t.plan(4)
+
+    const dest = path.join(file(), 'out.log')
+    const stream = new SonicBoom({ dest, mkdir: true, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\n')
+        stream.end()
+      })
     })
   })
 

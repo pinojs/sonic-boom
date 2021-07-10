@@ -57,10 +57,12 @@ The options are:
 
 * `fd`: a file descriptor, something that is returned by `fs.open` or
    `fs.openSync`.
-* `dest`: a string that is a path to a file to be written to (mode `'a'`).
-* `minLength`: the minimum lenght of the internal buffer that is
+* `dest`: a string that is a path to a file to be written to (mode controlled by the `append` option).
+* `minLength`: the minimum length of the internal buffer that is
   required to be full before flushing.
 * `sync`: perform writes synchronously (similar to `console.log`).
+* `append`: appends writes to dest file instead of truncating it (default `true`).
+* `mkdir`: ensure directory for dest file exists when `true` (default `false`).
 
 For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available. 
 For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to. 

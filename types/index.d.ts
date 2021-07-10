@@ -6,6 +6,14 @@
 import { EventEmitter } from 'events';
 
 export default SonicBoom;
+export type SonicBoomOpts = {
+    fd?: number | string | symbol
+    dest?: string
+    minLength?: number
+    sync?: boolean
+    append?: boolean
+    mkdir?: boolean
+}
 
 export class SonicBoom extends EventEmitter {
     /**
@@ -13,7 +21,7 @@ export class SonicBoom extends EventEmitter {
      * relative protocol is enabled. Default: process.stdout
      * @returns a new sonic-boom instance
      */
-    constructor(fileDescriptor: string | number, minLength?: number, sync?: boolean)
+    constructor(opts: SonicBoomOpts)
 
     /**
      * Writes the string to the file. It will return false to signal the producer to slow down.
