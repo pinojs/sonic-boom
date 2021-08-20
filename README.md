@@ -63,10 +63,16 @@ The options are:
 * `sync`: perform writes synchronously (similar to `console.log`).
 * `append`: appends writes to dest file instead of truncating it (default `true`).
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).
+* `retryEAGAIN(err, writeBufferLen, remainingBufferLen)`: a function that will be called when sonic-boom
+    write/writeSync/flushSync encounters a EAGAIN error. If the return value is
+    true sonic-boom will retry the operation, otherwise it will bubble the
+    error. `err` is the error that caused this function to be called,
+    `writeBufferLen` is the length of the buffer sonic-boom tried to write, and
+    `remainingBufferLen` is the lenght of the remaining buffer sonic-boom didn't try to write.
 
-For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available. 
-For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to. 
-   
+For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available.
+For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to.
+
 
 ### SonicBoom#write(string)
 

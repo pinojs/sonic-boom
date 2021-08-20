@@ -88,7 +88,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, sync, append = true, mkdir } = opts || {}
+  let { fd, dest, minLength, sync, append = true, mkdir, retryEAGAIN } = opts || {}
 
   fd = fd || dest
 
@@ -106,6 +106,7 @@ function SonicBoom (opts) {
   this.minLength = minLength || 0
   this.sync = sync || false
   this.append = append || false
+  this.retryEAGAIN = retryEAGAIN || (() => true)
   this.mkdir = mkdir || false
   this._againTimeout = null
 
@@ -123,7 +124,7 @@ function SonicBoom (opts) {
 
   this.release = (err, n) => {
     if (err) {
-      if (err.code === 'EAGAIN') {
+      if (err.code === 'EAGAIN' && this.retryEAGAIN(err, this._writingBuf.length, this._buf.length)) {
         if (this.sync) {
           // This error code should not happen in sync mode, because it is
           // not using the underlining operating system asynchronous functions.
@@ -344,7 +345,7 @@ SonicBoom.prototype.flushSync = function () {
       this._len -= fs.writeSync(this.fd, this._bufs[0], 'utf8')
       this._bufs.shift()
     } catch (err) {
-      if (err.code !== 'EAGAIN') {
+      if (err.code !== 'EAGAIN' || !this.retryEAGAIN(err, this._buf.length, 0)) {
         throw err
       }
 
