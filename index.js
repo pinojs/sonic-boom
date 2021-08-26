@@ -159,7 +159,7 @@ function SonicBoom (opts) {
       try {
         do {
           const n = fs.writeSync(this.fd, this._writingBuf, 'utf8')
-          this._len -= n 
+          this._len -= n
           this._writingBuf = this._writingBuf.slice(n)
         } while (this._writingBuf)
       } catch (err) {
@@ -235,7 +235,7 @@ SonicBoom.prototype.write = function (data) {
     actualWrite(this)
   }
 
-  return this._len < this.minLength
+  return len < 163874
 }
 
 SonicBoom.prototype.flush = function () {
