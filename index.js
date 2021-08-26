@@ -220,6 +220,10 @@ SonicBoom.prototype.write = function (data) {
     throw new Error('SonicBoom destroyed')
   }
 
+  if (!this._writing && this._buf.length + data.length > MAX_WRITE) {
+    actualWrite(this)
+  }
+
   this._buf += data
   const len = this._buf.length
   if (!this._writing && len > this.minLength) {
@@ -342,14 +346,9 @@ SonicBoom.prototype.destroy = function () {
 
 function actualWrite (sonic) {
   sonic._writing = true
-  let buf = sonic._buf
+  const buf = sonic._buf
+  sonic._buf = ''
   const release = sonic.release
-  if (buf.length > MAX_WRITE) {
-    buf = buf.slice(0, MAX_WRITE)
-    sonic._buf = sonic._buf.slice(MAX_WRITE)
-  } else {
-    sonic._buf = ''
-  }
   sonic._writingBuf = buf
   if (sonic.sync) {
     try {
