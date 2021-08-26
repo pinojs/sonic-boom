@@ -31,10 +31,10 @@ teardown(() => {
   })
 })
 
-test('sync false', (t) => {
-  buildTests(t.test, false)
-  t.end()
-})
+// test('sync false', (t) => {
+//   buildTests(t.test, false)
+//   t.end()
+// })
 
 test('sync true', (t) => {
   buildTests(t.test, true)
