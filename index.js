@@ -59,7 +59,7 @@ function openFile (file, sonic) {
     }
 
     // start
-    const len = sonic.len
+    const len = sonic._len
     if (len > 0 && len > sonic.minLength && !sonic.destroyed) {
       actualWrite(sonic)
     }
