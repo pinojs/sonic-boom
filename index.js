@@ -4,10 +4,10 @@ const fs = require('fs')
 const EventEmitter = require('events')
 const inherits = require('util').inherits
 const path = require('path')
+const assert = require('assert')
+const sleep = require('atomic-sleep')
 
 const BUSY_WRITE_TIMEOUT = 100
-
-const sleep = require('atomic-sleep')
 
 // 16 MB - magic number
 // This constant ensures that SonicBoom only needs
@@ -139,9 +139,6 @@ function SonicBoom (opts) {
           }, BUSY_WRITE_TIMEOUT)
         }
       } else {
-        // The error maybe recoverable later, so just put data back to this._buf
-        this._bufs.unshift(this._writingBuf)
-        this._writingBuf = ''
         this._writing = false
 
         this.emit('error', err)
@@ -156,9 +153,9 @@ function SonicBoom (opts) {
       if (this.sync) {
         try {
           do {
-            n = fs.writeSync(this.fd, this._writingBuf, 'utf8')
+            this._len -= fs.writeSync(this.fd, this._writingBuf, 'utf8')
             this._writingBuf = this._writingBuf.slice(n)
-          } while (this._writingBuf.length !== 0)
+          } while (this._writingBuf)
         } catch (err) {
           this.release(err)
           return
@@ -230,6 +227,8 @@ SonicBoom.prototype.write = function (data) {
   if (!this._bufs.length) {
     this._bufs.push('')
   }
+
+  assert(this._bufs.length)
 
   this._bufs[this._bufs.length - 1] += data
   this._len += data.length
@@ -310,16 +309,15 @@ SonicBoom.prototype.end = function () {
 
   this._ending = true
 
-  if (!this._writing && this._len && this.fd >= 0) {
-    actualWrite(this)
-    return
-  }
-
   if (this._writing) {
     return
   }
 
-  actualClose(this)
+  if (this._len > 0 && this.fd >= 0) {
+    actualWrite(this)
+  } else {
+    actualClose(this)
+  }
 }
 
 SonicBoom.prototype.flushSync = function () {
@@ -356,7 +354,11 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   const release = sonic.release
   sonic._writing = true
-  sonic._writingBuf = sonic._bufs.shift()
+  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift()
+
+  assert(sonic._len)
+  assert(sonic._writingBuf)
+
   if (sonic.sync) {
     try {
       const written = fs.writeSync(sonic.fd, sonic._writingBuf, 'utf8')
