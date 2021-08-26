@@ -235,7 +235,7 @@ SonicBoom.prototype.write = function (data) {
     actualWrite(this)
   }
 
-  return this._len < 16384
+  return this._len < this.minLength
 }
 
 SonicBoom.prototype.flush = function () {
