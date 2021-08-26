@@ -336,7 +336,8 @@ SonicBoom.prototype.flushSync = function () {
 
   while (this._bufs.length) {
     try {
-      this._len -= fs.writeSync(this.fd, this._bufs.shift(), 'utf8')
+      this._len -= fs.writeSync(this.fd, this._bufs[0], 'utf8')
+      this._bufs.shift()
     } catch (err) {
       if (err.code !== 'EAGAIN') {
         throw err
