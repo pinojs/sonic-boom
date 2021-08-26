@@ -31,10 +31,10 @@ teardown(() => {
   })
 })
 
-// test('sync false', (t) => {
-//   buildTests(t.test, false)
-//   t.end()
-// })
+test('sync false', (t) => {
+  buildTests(t.test, false)
+  t.end()
+})
 
 test('sync true', (t) => {
   buildTests(t.test, true)
@@ -731,47 +731,47 @@ test('retry on EAGAIN (sync)', (t) => {
   })
 })
 
-test('retry in flushSync on EAGAIN', (t) => {
-  t.plan(7)
+// test('retry in flushSync on EAGAIN', (t) => {
+//   t.plan(7)
 
-  const fakeFs = Object.create(fs)
-  const SonicBoom = proxyquire('.', {
-    fs: fakeFs
-  })
+//   const fakeFs = Object.create(fs)
+//   const SonicBoom = proxyquire('.', {
+//     fs: fakeFs
+//   })
 
-  const dest = file()
-  const fd = fs.openSync(dest, 'w')
-  const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
+//   const dest = file()
+//   const fd = fs.openSync(dest, 'w')
+//   const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
 
-  stream.on('ready', () => {
-    t.pass('ready emitted')
-  })
+//   stream.on('ready', () => {
+//     t.pass('ready emitted')
+//   })
 
-  t.ok(stream.write('hello world\n'))
+//   t.ok(stream.write('hello world\n'))
 
-  fakeFs.writeSync = function (fd, buf, enc) {
-    t.pass('fake fs.write called')
-    fakeFs.writeSync = fs.writeSync
-    const err = new Error('EAGAIN')
-    err.code = 'EAGAIN'
-    throw err
-  }
+//   fakeFs.writeSync = function (fd, buf, enc) {
+//     t.pass('fake fs.write called')
+//     fakeFs.writeSync = fs.writeSync
+//     const err = new Error('EAGAIN')
+//     err.code = 'EAGAIN'
+//     throw err
+//   }
 
-  t.ok(stream.write('something else\n'))
+//   t.ok(stream.write('something else\n'))
 
-  stream.flushSync()
-  stream.end()
+//   stream.flushSync()
+//   stream.end()
 
-  stream.on('finish', () => {
-    fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
-    })
-  })
-  stream.on('close', () => {
-    t.pass('close emitted')
-  })
-})
+//   stream.on('finish', () => {
+//     fs.readFile(dest, 'utf8', (err, data) => {
+//       t.error(err)
+//       t.equal(data, 'hello world\nsomething else\n')
+//     })
+//   })
+//   stream.on('close', () => {
+//     t.pass('close emitted')
+//   })
+// })
 
 test('write buffers that are not totally written', (t) => {
   t.plan(9)

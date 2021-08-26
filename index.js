@@ -59,8 +59,7 @@ function openFile (file, sonic) {
     }
 
     // start
-    const len = sonic._len
-    if (len > sonic.minLength && !sonic.destroyed) {
+    if (!sonic._writing && sonic._len > sonic.minLength && !sonic.destroyed) {
       actualWrite(sonic)
     }
   }
@@ -335,9 +334,9 @@ SonicBoom.prototype.flushSync = function () {
     this._writingBuf = ''
   }
 
-  for (const buf of this._bufs) {
+  while (this._bufs.length) {
     try {
-      this._len -= fs.writeSync(this.fd, buf, 'utf8')
+      this._len -= fs.writeSync(this.fd, this._bufs.shift(), 'utf8')
     } catch (err) {
       if (err.code !== 'EAGAIN') {
         throw err
@@ -346,7 +345,6 @@ SonicBoom.prototype.flushSync = function () {
       sleep(BUSY_WRITE_TIMEOUT)
     }
   }
-  this._bufs = []
 }
 
 SonicBoom.prototype.destroy = function () {
