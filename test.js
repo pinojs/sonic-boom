@@ -881,65 +881,61 @@ test('sync writing is fully sync', (t) => {
   t.equal(data, 'hello world\nsomething else\n')
 })
 
-// These they will fail on Node 6, as we cannot allocate a string this
-// big. It's considered a won't fix on Node 6, as it's deprecated.
-if (process.versions.node.indexOf('6.') !== 0) {
-  test('write enormously large buffers async', (t) => {
-    t.plan(3)
+test('write enormously large buffers async', (t) => {
+  t.plan(3)
 
-    const dest = file()
-    const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
-    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
-    let length = 0
+  const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+  let length = 0
 
-    for (let i = 0; i < 1024 * 512; i++) {
-      length += buf.length
-      stream.write(buf)
-    }
+  for (let i = 0; i < 1024 * 512; i++) {
+    length += buf.length
+    stream.write(buf)
+  }
 
-    stream.end()
+  stream.end()
 
-    stream.on('finish', () => {
-      fs.stat(dest, (err, stat) => {
-        t.error(err)
-        t.equal(stat.size, length)
-      })
-    })
-    stream.on('close', () => {
-      t.pass('close emitted')
+  stream.on('finish', () => {
+    fs.stat(dest, (err, stat) => {
+      t.error(err)
+      t.equal(stat.size, length)
     })
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
 
-  test('write enormously large buffers sync', (t) => {
-    t.plan(3)
+test('write enormously large buffers sync', (t) => {
+  t.plan(3)
 
-    const dest = file()
-    const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom({ fd, minLength: 0, sync: true })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
-    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
-    let length = 0
+  const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+  let length = 0
 
-    for (let i = 0; i < 1024 * 512; i++) {
-      length += buf.length
-      stream.write(buf)
-    }
+  for (let i = 0; i < 1024 * 512; i++) {
+    length += buf.length
+    stream.write(buf)
+  }
 
-    stream.end()
+  stream.end()
 
-    stream.on('finish', () => {
-      fs.stat(dest, (err, stat) => {
-        t.error(err)
-        t.equal(stat.size, length)
-      })
-    })
-    stream.on('close', () => {
-      t.pass('close emitted')
+  stream.on('finish', () => {
+    fs.stat(dest, (err, stat) => {
+      t.error(err)
+      t.equal(stat.size, length)
     })
   })
-}
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
 
 test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
   t.plan(4)
