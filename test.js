@@ -19,10 +19,11 @@ function file () {
 }
 
 teardown(() => {
+  const rmSync = fs.rmSync || fs.rmdirSync
   files.forEach((file) => {
     try {
       if (fs.existsSync(file)) {
-        fs.unlinkSync(file)
+        fs.statSync(file).isDirectory() ? rmSync(file, { recursive: true, maxRetries: 10 }) : fs.unlinkSync(file)
       }
     } catch (e) {
       console.log(e)
@@ -294,12 +295,6 @@ function buildTests (test, sync) {
         t.error(err)
         t.equal(data, 'hello world\n')
         stream.end()
-        // put file where teardown can access it
-        const { dir, base } = path.parse(dest)
-        const tmpDir = dir + '~'
-        fs.renameSync(dir, tmpDir)
-        fs.renameSync(path.join(tmpDir, base), dir)
-        fs.rmdirSync(tmpDir)
       })
     })
   })
@@ -886,65 +881,61 @@ test('sync writing is fully sync', (t) => {
   t.equal(data, 'hello world\nsomething else\n')
 })
 
-// These they will fail on Node 6, as we cannot allocate a string this
-// big. It's considered a won't fix on Node 6, as it's deprecated.
-if (process.versions.node.indexOf('6.') !== 0) {
-  test('write enormously large buffers async', (t) => {
-    t.plan(3)
+test('write enormously large buffers async', (t) => {
+  t.plan(3)
 
-    const dest = file()
-    const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
-    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
-    let length = 0
+  const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+  let length = 0
 
-    for (let i = 0; i < 1024 * 512; i++) {
-      length += buf.length
-      stream.write(buf)
-    }
+  for (let i = 0; i < 1024 * 512; i++) {
+    length += buf.length
+    stream.write(buf)
+  }
 
-    stream.end()
+  stream.end()
 
-    stream.on('finish', () => {
-      fs.stat(dest, (err, stat) => {
-        t.error(err)
-        t.equal(stat.size, length)
-      })
-    })
-    stream.on('close', () => {
-      t.pass('close emitted')
+  stream.on('finish', () => {
+    fs.stat(dest, (err, stat) => {
+      t.error(err)
+      t.equal(stat.size, length)
     })
   })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
 
-  test('write enormously large buffers sync', (t) => {
-    t.plan(3)
+test('write enormously large buffers sync', (t) => {
+  t.plan(3)
 
-    const dest = file()
-    const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom({ fd, minLength: 0, sync: true })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
-    const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
-    let length = 0
+  const buf = Buffer.alloc(1024).fill('x').toString() // 1 MB
+  let length = 0
 
-    for (let i = 0; i < 1024 * 512; i++) {
-      length += buf.length
-      stream.write(buf)
-    }
+  for (let i = 0; i < 1024 * 512; i++) {
+    length += buf.length
+    stream.write(buf)
+  }
 
-    stream.end()
+  stream.end()
 
-    stream.on('finish', () => {
-      fs.stat(dest, (err, stat) => {
-        t.error(err)
-        t.equal(stat.size, length)
-      })
-    })
-    stream.on('close', () => {
-      t.pass('close emitted')
+  stream.on('finish', () => {
+    fs.stat(dest, (err, stat) => {
+      t.error(err)
+      t.equal(stat.size, length)
     })
   })
-}
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
 
 test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
   t.plan(4)
@@ -996,4 +987,39 @@ test('sync error handling', (t) => {
   } catch (err) {
     t.pass('an error happened')
   }
+})
+
+test('write enormously large buffers async atomicly', (t) => {
+  t.plan(4)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+
+  const buf = Buffer.alloc(1023).fill('x').toString()
+
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length % buf.length, 0)
+    setImmediate(cb, null, _buf.length)
+  }
+
+  for (let i = 0; i < 1024 * 512; i++) {
+    stream.write(buf)
+  }
+
+  setImmediate(() => {
+    for (let i = 0; i < 1024 * 512; i++) {
+      stream.write(buf)
+    }
+
+    stream.end()
+  })
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
 })

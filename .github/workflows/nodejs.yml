@@ -21,7 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2.3.4
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2.1.5
+      uses: actions/setup-node@v2.4.0
       with:
         node-version: ${{ matrix.node-version }}
     - run: node --version
@@ -30,3 +30,11 @@ jobs:
     - run: npm test
       env:
         CI: true
+
+  automerge:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fastify/github-action-merge-dependabot@v2.4.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
