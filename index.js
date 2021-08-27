@@ -4,7 +4,6 @@ const fs = require('fs')
 const EventEmitter = require('events')
 const inherits = require('util').inherits
 const path = require('path')
-const assert = require('assert')
 const sleep = require('atomic-sleep')
 
 const BUSY_WRITE_TIMEOUT = 100
@@ -217,18 +216,16 @@ SonicBoom.prototype.write = function (data) {
   }
 
   const len = this._len + data.length
+  const bufs = this._bufs
 
   if (!this._writing && len > MAX_WRITE) {
-    this._bufs.push('')
+    bufs.push(data)
+  } else if (bufs.length === 0) {
+    bufs[0] = '' + data
+  } else {
+    bufs[bufs.length - 1] += data
   }
 
-  if (!this._bufs.length) {
-    this._bufs.push('')
-  }
-
-  assert(this._bufs.length)
-
-  this._bufs[this._bufs.length - 1] += data
   this._len = len
 
   if (!this._writing && this._len > this.minLength) {
@@ -359,9 +356,6 @@ function actualWrite (sonic) {
   const release = sonic.release
   sonic._writing = true
   sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift()
-
-  assert(sonic._len)
-  assert(sonic._writingBuf)
 
   if (sonic.sync) {
     try {
