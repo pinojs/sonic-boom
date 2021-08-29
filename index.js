@@ -5,6 +5,7 @@ const EventEmitter = require('events')
 const inherits = require('util').inherits
 const path = require('path')
 const sleep = require('atomic-sleep')
+const assert = require('assert')
 
 const BUSY_WRITE_TIMEOUT = 100
 
@@ -374,6 +375,15 @@ function actualClose (sonic) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
   }
+
+  sonic.destroyed = true
+
+  if (sonic._writing) {
+    sonic.once('drain', actualClose.bind(null, sonic))
+    return
+  }
+
+  assert(!sonic._writing)
   // TODO write a test to check if we are not leaking fds
   fs.close(sonic.fd, (err) => {
     if (err) {
@@ -386,7 +396,6 @@ function actualClose (sonic) {
     }
     sonic.emit('close')
   })
-  sonic.destroyed = true
   sonic._bufs = []
 }
 
