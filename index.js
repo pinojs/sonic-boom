@@ -100,6 +100,7 @@ function SonicBoom (opts) {
   this._ending = false
   this._reopening = false
   this._asyncDrainScheduled = false
+  this._hwm = Math.max(minLength || 0, 16387)
   this.file = null
   this.destroyed = false
   this.minLength = minLength || 0
@@ -228,11 +229,11 @@ SonicBoom.prototype.write = function (data) {
 
   this._len = len
 
-  if (!this._writing && this._len > this.minLength) {
+  if (!this._writing && this._len >= this.minLength) {
     actualWrite(this)
   }
 
-  return len < 16387
+  return this._len < this._hwm
 }
 
 SonicBoom.prototype.flush = function () {
