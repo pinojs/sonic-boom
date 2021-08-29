@@ -653,6 +653,20 @@ function buildTests (test, sync) {
   })
 }
 
+test('drain deadlock', (t) => {
+  t.plan(4)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest, sync: false, minLength: 99999 })
+
+  t.ok(stream.write(Buffer.alloc(15000).fill('x').toString()))
+  t.ok(stream.write(Buffer.alloc(15000).fill('x').toString()))
+  t.ok(!stream.write(Buffer.alloc(99999).fill('x').toString()))
+  stream.on('drain', () => {
+    t.pass()
+  })
+})
+
 test('retry on EAGAIN', (t) => {
   t.plan(7)
 
