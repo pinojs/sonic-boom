@@ -324,6 +324,24 @@ function buildTests (test, sync) {
     })
   })
 
+  test('flush with no data', (t) => {
+    t.plan(2)
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 4096, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      t.pass('drain emitted')
+    })
+  })
+
   test('reopen', (t) => {
     t.plan(9)
 

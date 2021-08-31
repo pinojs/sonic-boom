@@ -245,6 +245,10 @@ SonicBoom.prototype.flush = function () {
     return
   }
 
+  if (this._bufs.length === 0) {
+    this._bufs.push('')
+  }
+
   actualWrite(this)
 }
 
