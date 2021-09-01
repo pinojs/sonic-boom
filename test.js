@@ -1055,3 +1055,16 @@ test('write enormously large buffers async atomicly', (t) => {
     t.pass('close emitted')
   })
 })
+
+test('should throw if minLength >= MAX_WRITE', (t) => {
+  t.plan(1)
+  t.throws(() => {
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+
+    new SonicBoom({
+      fd,
+      minLength: 16 * 1024 * 1024
+    })
+  })
+})
