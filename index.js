@@ -117,6 +117,9 @@ function SonicBoom (opts) {
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
   }
+  if (this.minLength >= MAX_WRITE) {
+    throw new Error(`minLength should be smaller than MAX_WRITE (${MAX_WRITE})`)
+  }
 
   this.release = (err, n) => {
     if (err) {
