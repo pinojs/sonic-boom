@@ -88,7 +88,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, sync, append = true, mkdir } = opts || {}
+  let { fd, dest, minLength, sync, append = true, mkdir, retryEAGAIN } = opts || {}
 
   fd = fd || dest
 
@@ -106,8 +106,8 @@ function SonicBoom (opts) {
   this.minLength = minLength || 0
   this.sync = sync || false
   this.append = append || false
+  this.retryEAGAIN = retryEAGAIN || (() => true)
   this.mkdir = mkdir || false
-  this._againTimeout = null
 
   if (typeof fd === 'number') {
     this.fd = fd
@@ -123,7 +123,7 @@ function SonicBoom (opts) {
 
   this.release = (err, n) => {
     if (err) {
-      if (err.code === 'EAGAIN') {
+      if (err.code === 'EAGAIN' && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
         if (this.sync) {
           // This error code should not happen in sync mode, because it is
           // not using the underlining operating system asynchronous functions.
@@ -137,8 +137,7 @@ function SonicBoom (opts) {
           }
         } else {
           // Let's give the destination some time to process the chunk.
-          this._againTimeout = setTimeout(() => {
-            this._againTimeout = null
+          setTimeout(() => {
             fs.write(this.fd, this._writingBuf, 'utf8', this.release)
           }, BUSY_WRITE_TIMEOUT)
         }
@@ -333,18 +332,18 @@ SonicBoom.prototype.flushSync = function () {
     throw new Error('sonic boom is not ready yet')
   }
 
-  if (this._againTimeout) {
-    this._againTimeout = null
+  if (!this._writing && this._writingBuf.length > 0) {
     this._bufs.unshift(this._writingBuf)
     this._writingBuf = ''
   }
 
   while (this._bufs.length) {
+    const buf = this._bufs[0]
     try {
-      this._len -= fs.writeSync(this.fd, this._bufs[0], 'utf8')
+      this._len -= fs.writeSync(this.fd, buf, 'utf8')
       this._bufs.shift()
     } catch (err) {
-      if (err.code !== 'EAGAIN') {
+      if (err.code !== 'EAGAIN' || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
       }
 
