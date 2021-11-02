@@ -17,7 +17,7 @@ expectType<SonicBoom>( new SonicBoomCjsImport.default({ fd: 1}));
 expectType<any>( new SonicBoomCjs({ fd: 1}));
 expectType<any>( new SonicBoomCjsNamed({ fd: 1}));
 
-sonic.write('hello sonic\n');
+expectType<boolean>(sonic.write('hello sonic\n'));
 
 sonic.flush();
 

@@ -26,7 +26,7 @@ export class SonicBoom extends EventEmitter {
     /**
      * Writes the string to the file. It will return false to signal the producer to slow down.
      */
-    write(string: string): void;
+    write(string: string): boolean;
 
     /**
      * Writes the current buffer to the file if a write was not in progress.
