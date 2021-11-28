@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 export default SonicBoom;
 export type SonicBoomOpts = {
     fd?: number | string | symbol
-    dest?: string
+    dest?: string | number
     minLength?: number
     sync?: boolean
     append?: boolean

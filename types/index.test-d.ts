@@ -30,5 +30,7 @@ sonic.end();
 sonic.destroy();
 
 const extraSonic = new SonicBoom({fd: 1, minLength: 0, sync: true, append: true, mkdir: true});
+const sonicDest = new SonicBoom({fd: 1, minLength: 0, sync: true, append: true, mkdir: true, dest: '/dev/null'});
+const sonicDest2 = new SonicBoom({fd: 1, minLength: 0, sync: true, append: true, mkdir: true, dest: 1});
 
 extraSonic.write('extra sonic\n');
