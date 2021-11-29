@@ -9,10 +9,12 @@ export default SonicBoom;
 export type SonicBoomOpts = {
     fd?: number | string | symbol
     dest?: string | number
+    maxLength?: number
     minLength?: number
     sync?: boolean
     append?: boolean
     mkdir?: boolean
+    retryEAGAIN?: (err: Error, writeBufferLen: number, remainingBufferLen: number) => boolean
 }
 
 export class SonicBoom extends EventEmitter {

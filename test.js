@@ -1341,6 +1341,70 @@ test('write enormously large buffers async atomicly', (t) => {
   })
 })
 
+test('write should not drop new data if buffer is not full', (t) => {
+  t.plan(2)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 101, maxLength: 102, sync: false })
+
+  const buf = Buffer.alloc(100).fill('x').toString()
+
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length, buf.length + 2)
+    setImmediate(cb, null, _buf.length)
+    fakeFs.write = () => t.error('shouldnt call write again')
+    stream.end()
+  }
+
+  stream.on('drop', (data) => {
+    t.error('should not drop')
+  })
+
+  stream.write(buf)
+  stream.write('aa')
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('write should drop new data if buffer is full', (t) => {
+  t.plan(3)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 101, maxLength: 102, sync: false })
+
+  const buf = Buffer.alloc(100).fill('x').toString()
+
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length, buf.length)
+    setImmediate(cb, null, _buf.length)
+    fakeFs.write = () => t.error('shouldnt call write more than once')
+  }
+
+  stream.on('drop', (data) => {
+    t.equal(data.length, 3)
+    stream.end()
+  })
+
+  stream.write(buf)
+  stream.write('aaa')
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
 test('should throw if minLength >= MAX_WRITE', (t) => {
   t.plan(1)
   t.throws(() => {
