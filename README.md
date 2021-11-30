@@ -60,6 +60,8 @@ The options are:
 * `dest`: a string that is a path to a file to be written to (mode controlled by the `append` option).
 * `minLength`: the minimum length of the internal buffer that is
   required to be full before flushing.
+* `maxLength`: the maximum length of the internal buffer. If a write operation would cause the buffer
+  to exceed `maxLength`, the data written is dropped and a `drop` event is emitted with the dropped data
 * `sync`: perform writes synchronously (similar to `console.log`).
 * `append`: appends writes to dest file instead of truncating it (default `true`).
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).
