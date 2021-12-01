@@ -1306,6 +1306,29 @@ test('sync error handling', (t) => {
   }
 })
 
+for (const fd of [1, 2]) {
+  test(`fd ${fd}`, (t) => {
+    t.plan(1)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('.', {
+      fs: fakeFs
+    })
+
+    const stream = new SonicBoom({ fd })
+
+    fakeFs.close = function (fd, cb) {
+      t.fail('should not close fd 1')
+    }
+
+    stream.end()
+
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
+  })
+}
+
 test('write enormously large buffers async atomicly', (t) => {
   t.plan(4)
   const fakeFs = Object.create(fs)
