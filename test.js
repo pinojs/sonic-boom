@@ -1318,7 +1318,7 @@ for (const fd of [1, 2]) {
     const stream = new SonicBoom({ fd })
 
     fakeFs.close = function (fd, cb) {
-      t.fail('should not close fd 1')
+      t.fail(`should not close fd ${fd}`)
     }
 
     stream.end()
