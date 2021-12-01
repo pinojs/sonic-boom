@@ -386,8 +386,17 @@ function actualClose (sonic) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
   }
-  // TODO write a test to check if we are not leaking fds
-  fs.close(sonic.fd, (err) => {
+
+  sonic.destroyed = true
+  sonic._bufs = []
+
+  if (sonic.fd !== 1 && sonic.fd !== 2) {
+    fs.close(sonic.fd, done)
+  } else {
+    setImmediate(done)
+  }
+
+  function done (err) {
     if (err) {
       sonic.emit('error', err)
       return
@@ -397,9 +406,7 @@ function actualClose (sonic) {
       sonic.emit('finish')
     }
     sonic.emit('close')
-  })
-  sonic.destroyed = true
-  sonic._bufs = []
+  }
 }
 
 /**
