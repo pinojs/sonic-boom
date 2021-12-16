@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/pinojs/sonic-boom#readme",
   "devDependencies": {
-    "@types/node": "^16.11.10",
+    "@types/node": "^17.0.0",
     "fastbench": "^1.0.1",
     "husky": "^7.0.1",
     "proxyquire": "^2.1.0",
