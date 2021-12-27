@@ -1330,7 +1330,7 @@ for (const fd of [1, 2]) {
 }
 
 test('write enormously large buffers async atomicly', (t) => {
-  t.plan(4)
+  t.plan(66)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('.', {
     fs: fakeFs

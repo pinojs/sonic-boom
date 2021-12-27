@@ -226,10 +226,12 @@ SonicBoom.prototype.write = function (data) {
     this.emit('drop', data)
     return this._len < this._hwm
   }
-  if (!this._writing && len > MAX_WRITE) {
-    bufs.push(data)
-  } else if (bufs.length === 0) {
-    bufs[0] = '' + data
+
+  if (
+    bufs.length === 0 ||
+    bufs[bufs.length - 1].length + data.length > MAX_WRITE
+  ) {
+    bufs.push('' + data)
   } else {
     bufs[bufs.length - 1] += data
   }
