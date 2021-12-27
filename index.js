@@ -250,7 +250,7 @@ SonicBoom.prototype.flush = function () {
     throw new Error('SonicBoom destroyed')
   }
 
-  if (this._writing || this.minLength <= 0) {
+  if (this._writing || this.minLength <= 0 || !this._len) {
     return
   }
 
