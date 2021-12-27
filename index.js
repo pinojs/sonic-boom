@@ -139,6 +139,8 @@ function SonicBoom (opts) {
           }, BUSY_WRITE_TIMEOUT)
         }
       } else {
+        this._len -= this._writingBuf.length
+        this._writingBuf = ''
         this.emit('error', err)
       }
       return
@@ -329,6 +331,7 @@ SonicBoom.prototype.flushSync = function () {
   }
 
   if (this._writingBuf) {
+    // TODO (fix): If we are already writing then this can fail?
     this._bufs.unshift(this._writingBuf)
     this._writingBuf = ''
   }
