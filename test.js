@@ -1329,40 +1329,40 @@ for (const fd of [1, 2]) {
   })
 }
 
-// test('write enormously large buffers async atomicly', (t) => {
-//   t.plan(4)
-//   const fakeFs = Object.create(fs)
-//   const SonicBoom = proxyquire('.', {
-//     fs: fakeFs
-//   })
+test('write enormously large buffers async atomicly', (t) => {
+  t.plan(66)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
 
-//   const dest = file()
-//   const fd = fs.openSync(dest, 'w')
-//   const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
-//   const buf = Buffer.alloc(1023).fill('x').toString()
+  const buf = Buffer.alloc(1023).fill('x').toString()
 
-//   fakeFs.write = function (fd, _buf, enc, cb) {
-//     t.equal(_buf.length % buf.length, 0)
-//     setImmediate(cb, null, _buf.length)
-//   }
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length % buf.length, 0)
+    setImmediate(cb, null, _buf.length)
+  }
 
-//   for (let i = 0; i < 1024 * 512; i++) {
-//     stream.write(buf)
-//   }
+  for (let i = 0; i < 1024 * 512; i++) {
+    stream.write(buf)
+  }
 
-//   setImmediate(() => {
-//     for (let i = 0; i < 1024 * 512; i++) {
-//       stream.write(buf)
-//     }
+  setImmediate(() => {
+    for (let i = 0; i < 1024 * 512; i++) {
+      stream.write(buf)
+    }
 
-//     stream.end()
-//   })
+    stream.end()
+  })
 
-//   stream.on('close', () => {
-//     t.pass('close emitted')
-//   })
-// })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
 
 test('write should not drop new data if buffer is not full', (t) => {
   t.plan(2)
