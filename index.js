@@ -369,7 +369,7 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   const release = sonic.release
   sonic._writing = true
-  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift()
+  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift() || ''
 
   if (sonic.sync) {
     try {
