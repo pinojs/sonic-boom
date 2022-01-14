@@ -676,12 +676,11 @@ function buildTests (test, sync) {
     })
   })
 
-  test('mode', (t) => {
+  test('mode', { skip: isWindows }, (t) => {
     t.plan(6)
 
     const dest = file()
-    // In Windows we can only set the "user" bits
-    const mode = isWindows ? 0o444 : 0o666
+    const mode = 0o666
     const stream = new SonicBoom({ dest, sync, mode })
 
     stream.on('ready', () => {
@@ -702,11 +701,11 @@ function buildTests (test, sync) {
     })
   })
 
-  test('mode default', (t) => {
+  test('mode default', { skip: isWindows }, (t) => {
     t.plan(6)
 
     const dest = file()
-    const defaultMode = isWindows ? 0o444 : 0o666
+    const defaultMode = 0o666
     const stream = new SonicBoom({ dest, sync })
 
     stream.on('ready', () => {
@@ -727,11 +726,11 @@ function buildTests (test, sync) {
     })
   })
 
-  test('mode on mkdir', (t) => {
+  test('mode on mkdir', { skip: isWindows }, (t) => {
     t.plan(5)
 
     const dest = path.join(file(), 'out.log')
-    const mode = isWindows ? 0o444 : 0o666
+    const mode = 0o666
     const stream = new SonicBoom({ dest, mkdir: true, mode, sync })
 
     stream.on('ready', () => {
@@ -752,7 +751,7 @@ function buildTests (test, sync) {
     })
   })
 
-  test('mode on append', (t) => {
+  test('mode on append', { skip: isWindows }, (t) => {
     t.plan(5)
 
     const dest = file()
