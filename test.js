@@ -638,7 +638,7 @@ function buildTests (test, sync) {
           throw new Error('open error')
         }
       } else {
-        fakeFs.open = function (file, flags, cb) {
+        fakeFs.open = function (file, flags, mode, cb) {
           t.pass('fake fs.open called')
           setTimeout(() => cb(new Error('open error')), 0)
         }
@@ -668,6 +668,108 @@ function buildTests (test, sync) {
           t.pass('close emitted')
         })
       }, 0)
+    })
+  })
+
+  test('mode', (t) => {
+    t.plan(6)
+
+    const dest = file()
+    const mode = 0o444
+    const stream = new SonicBoom({ dest, sync, mode })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(fs.statSync(dest).mode & 0o777, stream.mode)
+      })
+    })
+  })
+
+  test('mode default', (t) => {
+    t.plan(6)
+
+    const dest = file()
+    const defaultMode = 0o644
+    const stream = new SonicBoom({ dest, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(fs.statSync(dest).mode & 0o777, defaultMode)
+      })
+    })
+  })
+
+  test('mode 0o666 resulting to default 0o644', (t) => {
+    t.plan(7)
+
+    const dest = file()
+    const defaultMode = 0o644
+    const mode = 0o666
+    const stream = new SonicBoom({ dest, sync, mode })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.not(fs.statSync(dest).mode & 0o777, stream.mode)
+        t.equal(fs.statSync(dest).mode & 0o777, defaultMode)
+      })
+    })
+  })
+
+  test('mode on mkdir', (t) => {
+    t.plan(5)
+
+    const dest = path.join(file(), 'out.log')
+    const mode = 0o444
+    const stream = new SonicBoom({ dest, mkdir: true, mode, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\n')
+        t.equal(fs.statSync(dest).mode & 0o777, stream.mode)
+        stream.end()
+      })
     })
   })
 }

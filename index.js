@@ -62,11 +62,13 @@ function openFile (file, sonic) {
     }
   }
 
-  const mode = sonic.append ? 'a' : 'w'
+  const flags = sonic.append ? 'a' : 'w'
+  const mode = sonic.mode
+
   if (sonic.sync) {
     try {
       if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
-      const fd = fs.openSync(file, mode)
+      const fd = fs.openSync(file, flags, mode)
       fileOpened(null, fd)
     } catch (err) {
       fileOpened(err)
@@ -75,10 +77,10 @@ function openFile (file, sonic) {
   } else if (sonic.mkdir) {
     fs.mkdir(path.dirname(file), { recursive: true }, (err) => {
       if (err) return fileOpened(err)
-      fs.open(file, mode, fileOpened)
+      fs.open(file, flags, mode, fileOpened)
     })
   } else {
-    fs.open(file, mode, fileOpened)
+    fs.open(file, flags, mode, fileOpened)
   }
 }
 
@@ -87,7 +89,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, sync, append = true, mkdir, retryEAGAIN } = opts || {}
+  let { fd, dest, minLength, maxLength, sync, append = true, mode, mkdir, retryEAGAIN } = opts || {}
 
   fd = fd || dest
 
@@ -106,6 +108,7 @@ function SonicBoom (opts) {
   this.maxLength = maxLength || 0
   this.sync = sync || false
   this.append = append || false
+  this.mode = mode
   this.retryEAGAIN = retryEAGAIN || (() => true)
   this.mkdir = mkdir || false
 
