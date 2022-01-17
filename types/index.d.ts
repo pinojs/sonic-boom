@@ -13,6 +13,7 @@ export type SonicBoomOpts = {
     minLength?: number
     sync?: boolean
     append?: boolean
+    mode?: string | number
     mkdir?: boolean
     retryEAGAIN?: (err: Error, writeBufferLen: number, remainingBufferLen: number) => boolean
 }
