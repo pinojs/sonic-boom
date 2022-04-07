@@ -8,11 +8,9 @@ const sleep = require('atomic-sleep')
 
 const BUSY_WRITE_TIMEOUT = 100
 
-// This constant ensures that SonicBoom only needs
-// 64KB MB of free memory to run. In case of having 1GB+
-// of data to write, this prevents an out of memory
-// condition.
-const MAX_WRITE = 64 * 1024
+// 16 KB. Don't write more than docker buffer size.
+// https://github.com/moby/moby/blob/513ec73831269947d38a644c278ce3cac36783b2/daemon/logger/copier.go#L13
+const MAX_WRITE = 16 * 1024
 
 function openFile (file, sonic) {
   sonic._opening = true
