@@ -11,7 +11,7 @@ const SonicBoom = require('.')
 
 const isWindows = process.platform === 'win32'
 
-const MAX_WRITE = 64 * 1024
+const MAX_WRITE = 16 * 1024
 const files = []
 let count = 0
 
