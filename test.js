@@ -776,6 +776,38 @@ function buildTests (test, sync) {
       })
     })
   })
+
+  test('emit write events', (t) => {
+    t.plan(7)
+
+    const dest = file()
+    const stream = new SonicBoom({ dest, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    let length = 0
+    stream.on('write', (bytes) => {
+      length += bytes
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(length, 27)
+      })
+    })
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
+  })
 }
 
 test('drain deadlock', (t) => {
