@@ -149,6 +149,7 @@ function SonicBoom (opts) {
       }
       return
     }
+    this.emit('write', n)
 
     this._len -= n
     this._writingBuf = this._writingBuf.slice(n)
