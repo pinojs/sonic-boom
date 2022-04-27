@@ -1127,7 +1127,7 @@ test('retryEAGAIN receives remaining buffer on async if write fails', (t) => {
   })
 })
 
-test('retryEAGAIN receives remaining buffer if exceeds MAX_WRITE', (t) => {
+test('retryEAGAIN receives remaining buffer if exceeds maxWrite', (t) => {
   t.plan(17)
 
   const fakeFs = Object.create(fs)
@@ -1537,7 +1537,7 @@ test('write should drop new data if buffer is full', (t) => {
   })
 })
 
-test('should throw if minLength >= MAX_WRITE', (t) => {
+test('should throw if minLength >= maxWrite', (t) => {
   t.plan(1)
   t.throws(() => {
     const dest = file()
@@ -1548,4 +1548,11 @@ test('should throw if minLength >= MAX_WRITE', (t) => {
       minLength: MAX_WRITE
     })
   })
+})
+
+test('make sure `maxWrite` is passed', (t) => {
+  t.plan(1)
+  const dest = file()
+  const stream = new SonicBoom({ dest, maxLength: 65536 })
+  t.equal(stream.maxLength, 65536)
 })

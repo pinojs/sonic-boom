@@ -87,7 +87,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, sync, append = true, mode, mkdir, retryEAGAIN } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mode, mkdir, retryEAGAIN } = opts || {}
 
   fd = fd || dest
 
@@ -104,6 +104,7 @@ function SonicBoom (opts) {
   this.destroyed = false
   this.minLength = minLength || 0
   this.maxLength = maxLength || 0
+  this.maxWrite = maxWrite || MAX_WRITE
   this.sync = sync || false
   this.append = append || false
   this.mode = mode
@@ -118,8 +119,8 @@ function SonicBoom (opts) {
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
   }
-  if (this.minLength >= MAX_WRITE) {
-    throw new Error(`minLength should be smaller than MAX_WRITE (${MAX_WRITE})`)
+  if (this.minLength >= this.maxWrite) {
+    throw new Error(`minLength should be smaller than maxWrite (${this.maxWrite})`)
   }
 
   this.release = (err, n) => {
@@ -229,7 +230,7 @@ SonicBoom.prototype.write = function (data) {
 
   if (
     bufs.length === 0 ||
-    bufs[bufs.length - 1].length + data.length > MAX_WRITE
+    bufs[bufs.length - 1].length + data.length > this.maxWrite
   ) {
     bufs.push('' + data)
   } else {

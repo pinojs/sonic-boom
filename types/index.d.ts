@@ -11,6 +11,7 @@ export type SonicBoomOpts = {
     dest?: string | number
     maxLength?: number
     minLength?: number
+    maxWrite?: number
     sync?: boolean
     append?: boolean
     mode?: string | number
