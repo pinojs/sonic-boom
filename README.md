@@ -60,8 +60,12 @@ The options are:
 * `dest`: a string that is a path to a file to be written to (mode controlled by the `append` option).
 * `minLength`: the minimum length of the internal buffer that is
   required to be full before flushing.
+* `maxLength`: the maximum length of the internal buffer. If a write operation would cause the buffer
+  to exceed `maxLength`, the data written is dropped and a `drop` event is emitted with the dropped data
+* `maxWrite`: the maximum number of bytes that can be written; default: 16384
 * `sync`: perform writes synchronously (similar to `console.log`).
 * `append`: appends writes to dest file instead of truncating it (default `true`).
+* `mode`: specify the creating file `mode` (see [fs.open()](https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback) from Node.js core).
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).
 * `retryEAGAIN(err, writeBufferLen, remainingBufferLen)`: a function that will be called when sonic-boom
     write/writeSync/flushSync encounters a EAGAIN error. If the return value is
@@ -108,6 +112,37 @@ Closes the stream, the data will be flushed down asynchronously
 ### SonicBoom#destroy()
 
 Closes the stream immediately, the data is not flushed.
+
+### Events
+
+
+#### SonicBoom#close
+
+See [Stream#close](https://nodejs.org/api/stream.html#event-close). The `'close'` event when the instance has been closed.
+
+#### SonicBoom#drain
+
+See [Stream#drain](https://nodejs.org/api/stream.html#event-drain). The `'drain'` event is emitted when source can resume sending data.
+
+#### SonicBoom#drop <any>
+
+When destination file maximal length is reached, the `'drop'` event is emitted with data that could not be written. 
+
+#### SonicBoom#error <Error>
+
+The `'error'` event is emitted when the destination file can not be opened, or written.
+
+#### SonicBoom#finish
+
+See [Stream#finish](https://nodejs.org/api/stream.html#event-finish). The `'finish'` event after calling `end()` method and when all data was written.
+
+#### SonicBoom#ready
+
+The `'ready'` event occurs when the created instance is ready to process input.
+
+#### SonicBoom#write <number>
+
+The `'write'` event occurs every time data is written to the underlying file. It emits the number of written bytes.
 
 ## License
 

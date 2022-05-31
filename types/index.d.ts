@@ -8,11 +8,15 @@ import { EventEmitter } from 'events';
 export default SonicBoom;
 export type SonicBoomOpts = {
     fd?: number | string | symbol
-    dest?: string
+    dest?: string | number
+    maxLength?: number
     minLength?: number
+    maxWrite?: number
     sync?: boolean
     append?: boolean
+    mode?: string | number
     mkdir?: boolean
+    retryEAGAIN?: (err: Error, writeBufferLen: number, remainingBufferLen: number) => boolean
 }
 
 export class SonicBoom extends EventEmitter {

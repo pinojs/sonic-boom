@@ -8,12 +8,9 @@ const sleep = require('atomic-sleep')
 
 const BUSY_WRITE_TIMEOUT = 100
 
-// 16 MB - magic number
-// This constant ensures that SonicBoom only needs
-// 32 MB of free memory to run. In case of having 1GB+
-// of data to write, this prevents an out of memory
-// condition.
-const MAX_WRITE = 16 * 1024 * 1024
+// 16 KB. Don't write more than docker buffer size.
+// https://github.com/moby/moby/blob/513ec73831269947d38a644c278ce3cac36783b2/daemon/logger/copier.go#L13
+const MAX_WRITE = 16 * 1024
 
 function openFile (file, sonic) {
   sonic._opening = true
@@ -63,11 +60,13 @@ function openFile (file, sonic) {
     }
   }
 
-  const mode = sonic.append ? 'a' : 'w'
+  const flags = sonic.append ? 'a' : 'w'
+  const mode = sonic.mode
+
   if (sonic.sync) {
     try {
       if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
-      const fd = fs.openSync(file, mode)
+      const fd = fs.openSync(file, flags, mode)
       fileOpened(null, fd)
     } catch (err) {
       fileOpened(err)
@@ -76,10 +75,10 @@ function openFile (file, sonic) {
   } else if (sonic.mkdir) {
     fs.mkdir(path.dirname(file), { recursive: true }, (err) => {
       if (err) return fileOpened(err)
-      fs.open(file, mode, fileOpened)
+      fs.open(file, flags, mode, fileOpened)
     })
   } else {
-    fs.open(file, mode, fileOpened)
+    fs.open(file, flags, mode, fileOpened)
   }
 }
 
@@ -88,7 +87,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, sync, append = true, mkdir, retryEAGAIN } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mode, mkdir, retryEAGAIN } = opts || {}
 
   fd = fd || dest
 
@@ -104,8 +103,11 @@ function SonicBoom (opts) {
   this.file = null
   this.destroyed = false
   this.minLength = minLength || 0
+  this.maxLength = maxLength || 0
+  this.maxWrite = maxWrite || MAX_WRITE
   this.sync = sync || false
   this.append = append || false
+  this.mode = mode
   this.retryEAGAIN = retryEAGAIN || (() => true)
   this.mkdir = mkdir || false
 
@@ -117,8 +119,8 @@ function SonicBoom (opts) {
   } else {
     throw new Error('SonicBoom supports only file descriptors and files')
   }
-  if (this.minLength >= MAX_WRITE) {
-    throw new Error(`minLength should be smaller than MAX_WRITE (${MAX_WRITE})`)
+  if (this.minLength >= this.maxWrite) {
+    throw new Error(`minLength should be smaller than maxWrite (${this.maxWrite})`)
   }
 
   this.release = (err, n) => {
@@ -148,6 +150,7 @@ function SonicBoom (opts) {
       }
       return
     }
+    this.emit('write', n)
 
     this._len -= n
     this._writingBuf = this._writingBuf.slice(n)
@@ -221,10 +224,16 @@ SonicBoom.prototype.write = function (data) {
   const len = this._len + data.length
   const bufs = this._bufs
 
-  if (!this._writing && len > MAX_WRITE) {
-    bufs.push(data)
-  } else if (bufs.length === 0) {
-    bufs[0] = '' + data
+  if (this.maxLength && len > this.maxLength) {
+    this.emit('drop', data)
+    return this._len < this._hwm
+  }
+
+  if (
+    bufs.length === 0 ||
+    bufs[bufs.length - 1].length + data.length > this.maxWrite
+  ) {
+    bufs.push('' + data)
   } else {
     bufs[bufs.length - 1] += data
   }
@@ -362,7 +371,7 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   const release = sonic.release
   sonic._writing = true
-  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift()
+  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift() || ''
 
   if (sonic.sync) {
     try {
@@ -381,8 +390,17 @@ function actualClose (sonic) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
   }
-  // TODO write a test to check if we are not leaking fds
-  fs.close(sonic.fd, (err) => {
+
+  sonic.destroyed = true
+  sonic._bufs = []
+
+  if (sonic.fd !== 1 && sonic.fd !== 2) {
+    fs.close(sonic.fd, done)
+  } else {
+    setImmediate(done)
+  }
+
+  function done (err) {
     if (err) {
       sonic.emit('error', err)
       return
@@ -392,9 +410,7 @@ function actualClose (sonic) {
       sonic.emit('finish')
     }
     sonic.emit('close')
-  })
-  sonic.destroyed = true
-  sonic._bufs = []
+  }
 }
 
 /**

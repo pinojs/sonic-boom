@@ -9,7 +9,9 @@ const path = require('path')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('.')
 
-const MAX_WRITE = 16 * 1024 * 1024
+const isWindows = process.platform === 'win32'
+
+const MAX_WRITE = 16 * 1024
 const files = []
 let count = 0
 
@@ -43,6 +45,9 @@ test('sync true', (t) => {
 })
 
 function buildTests (test, sync) {
+  // Reset the umask for testing
+  process.umask(0o000)
+
   test('write things to a file descriptor', (t) => {
     t.plan(6)
 
@@ -638,7 +643,7 @@ function buildTests (test, sync) {
           throw new Error('open error')
         }
       } else {
-        fakeFs.open = function (file, flags, cb) {
+        fakeFs.open = function (file, flags, mode, cb) {
           t.pass('fake fs.open called')
           setTimeout(() => cb(new Error('open error')), 0)
         }
@@ -670,17 +675,150 @@ function buildTests (test, sync) {
       }, 0)
     })
   })
+
+  test('mode', { skip: isWindows }, (t) => {
+    t.plan(6)
+
+    const dest = file()
+    const mode = 0o666
+    const stream = new SonicBoom({ dest, sync, mode })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(fs.statSync(dest).mode & 0o777, stream.mode)
+      })
+    })
+  })
+
+  test('mode default', { skip: isWindows }, (t) => {
+    t.plan(6)
+
+    const dest = file()
+    const defaultMode = 0o666
+    const stream = new SonicBoom({ dest, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(fs.statSync(dest).mode & 0o777, defaultMode)
+      })
+    })
+  })
+
+  test('mode on mkdir', { skip: isWindows }, (t) => {
+    t.plan(5)
+
+    const dest = path.join(file(), 'out.log')
+    const mode = 0o666
+    const stream = new SonicBoom({ dest, mkdir: true, mode, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('hello world\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\n')
+        t.equal(fs.statSync(dest).mode & 0o777, stream.mode)
+        stream.end()
+      })
+    })
+  })
+
+  test('mode on append', { skip: isWindows }, (t) => {
+    t.plan(5)
+
+    const dest = file()
+    fs.writeFileSync(dest, 'hello world\n', 'utf8', 0o422)
+    const mode = isWindows ? 0o444 : 0o666
+    const stream = new SonicBoom({ dest, append: false, mode, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    t.ok(stream.write('something else\n'))
+
+    stream.flush()
+
+    stream.on('drain', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'something else\n')
+        t.equal(fs.statSync(dest).mode & 0o777, stream.mode)
+        stream.end()
+      })
+    })
+  })
+
+  test('emit write events', (t) => {
+    t.plan(7)
+
+    const dest = file()
+    const stream = new SonicBoom({ dest, sync })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    let length = 0
+    stream.on('write', (bytes) => {
+      length += bytes
+    })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    stream.end()
+
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.error(err)
+        t.equal(data, 'hello world\nsomething else\n')
+        t.equal(length, 27)
+      })
+    })
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
+  })
 }
 
 test('drain deadlock', (t) => {
   t.plan(4)
 
   const dest = file()
-  const stream = new SonicBoom({ dest, sync: false, minLength: 99999 })
+  const stream = new SonicBoom({ dest, sync: false, minLength: 9999 })
 
-  t.ok(stream.write(Buffer.alloc(15000).fill('x').toString()))
-  t.ok(stream.write(Buffer.alloc(15000).fill('x').toString()))
-  t.ok(!stream.write(Buffer.alloc(99999).fill('x').toString()))
+  t.ok(stream.write(Buffer.alloc(1500).fill('x').toString()))
+  t.ok(stream.write(Buffer.alloc(1500).fill('x').toString()))
+  t.ok(!stream.write(Buffer.alloc(MAX_WRITE).fill('x').toString()))
   stream.on('drain', () => {
     t.pass()
   })
@@ -1021,7 +1159,7 @@ test('retryEAGAIN receives remaining buffer on async if write fails', (t) => {
   })
 })
 
-test('retryEAGAIN receives remaining buffer if exceeds MAX_WRITE', (t) => {
+test('retryEAGAIN receives remaining buffer if exceeds maxWrite', (t) => {
   t.plan(17)
 
   const fakeFs = Object.create(fs)
@@ -1306,8 +1444,30 @@ test('sync error handling', (t) => {
   }
 })
 
+for (const fd of [1, 2]) {
+  test(`fd ${fd}`, (t) => {
+    t.plan(1)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('.', {
+      fs: fakeFs
+    })
+
+    const stream = new SonicBoom({ fd })
+
+    fakeFs.close = function (fd, cb) {
+      t.fail(`should not close fd ${fd}`)
+    }
+
+    stream.end()
+
+    stream.on('close', () => {
+      t.pass('close emitted')
+    })
+  })
+}
+
 test('write enormously large buffers async atomicly', (t) => {
-  t.plan(4)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('.', {
     fs: fakeFs
@@ -1320,7 +1480,10 @@ test('write enormously large buffers async atomicly', (t) => {
   const buf = Buffer.alloc(1023).fill('x').toString()
 
   fakeFs.write = function (fd, _buf, enc, cb) {
-    t.equal(_buf.length % buf.length, 0)
+    if (_buf.length % buf.length !== 0) {
+      t.fail('write called with wrong buffer size')
+    }
+
     setImmediate(cb, null, _buf.length)
   }
 
@@ -1338,10 +1501,75 @@ test('write enormously large buffers async atomicly', (t) => {
 
   stream.on('close', () => {
     t.pass('close emitted')
+    t.end()
   })
 })
 
-test('should throw if minLength >= MAX_WRITE', (t) => {
+test('write should not drop new data if buffer is not full', (t) => {
+  t.plan(2)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 101, maxLength: 102, sync: false })
+
+  const buf = Buffer.alloc(100).fill('x').toString()
+
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length, buf.length + 2)
+    setImmediate(cb, null, _buf.length)
+    fakeFs.write = () => t.error('shouldnt call write again')
+    stream.end()
+  }
+
+  stream.on('drop', (data) => {
+    t.error('should not drop')
+  })
+
+  stream.write(buf)
+  stream.write('aa')
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('write should drop new data if buffer is full', (t) => {
+  t.plan(3)
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('.', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 101, maxLength: 102, sync: false })
+
+  const buf = Buffer.alloc(100).fill('x').toString()
+
+  fakeFs.write = function (fd, _buf, enc, cb) {
+    t.equal(_buf.length, buf.length)
+    setImmediate(cb, null, _buf.length)
+    fakeFs.write = () => t.error('shouldnt call write more than once')
+  }
+
+  stream.on('drop', (data) => {
+    t.equal(data.length, 3)
+    stream.end()
+  })
+
+  stream.write(buf)
+  stream.write('aaa')
+
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('should throw if minLength >= maxWrite', (t) => {
   t.plan(1)
   t.throws(() => {
     const dest = file()
@@ -1352,4 +1580,11 @@ test('should throw if minLength >= MAX_WRITE', (t) => {
       minLength: MAX_WRITE
     })
   })
+})
+
+test('make sure `maxWrite` is passed', (t) => {
+  t.plan(1)
+  const dest = file()
+  const stream = new SonicBoom({ dest, maxLength: 65536 })
+  t.equal(stream.maxLength, 65536)
 })
