@@ -4,7 +4,7 @@ import SonicBoomDefault from "../";
 import * as SonicBoomStar from "../";
 import SonicBoomCjsImport = require ("../");
 const SonicBoomCjs = require("../");
-const { SonicBoom: SonicBoomCjsNamed } = require('SonicBoom')
+const { SonicBoom: SonicBoomCjsNamed } = require('SonicBoom');
 
 const sonic = new SonicBoom({ fd: 1});
 
