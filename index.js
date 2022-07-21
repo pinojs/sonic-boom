@@ -87,7 +87,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mode, mkdir, retryEAGAIN } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mode, mkdir, retryEAGAIN, fsync } = opts || {}
 
   fd = fd || dest
 
@@ -106,6 +106,7 @@ function SonicBoom (opts) {
   this.maxLength = maxLength || 0
   this.maxWrite = maxWrite || MAX_WRITE
   this.sync = sync || false
+  this._fsync = fsync || false
   this.append = append || false
   this.mode = mode
   this.retryEAGAIN = retryEAGAIN || (() => true)
@@ -150,6 +151,7 @@ function SonicBoom (opts) {
       }
       return
     }
+
     this.emit('write', n)
 
     this._len -= n
@@ -171,6 +173,10 @@ function SonicBoom (opts) {
         this.release(err)
         return
       }
+    }
+
+    if (this._fsync) {
+      fs.fsyncSync(this.fd)
     }
 
     const len = this._len
