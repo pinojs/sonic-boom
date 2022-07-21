@@ -63,6 +63,7 @@ The options are:
   to exceed `maxLength`, the data written is dropped and a `drop` event is emitted with the dropped data
 * `maxWrite`: the maximum number of bytes that can be written; default: 16384
 * `sync`: perform writes synchronously (similar to `console.log`).
+* `fsync`: perform a [fsyncSync](https://nodejs.org/api/fs.html#fsfsyncsyncfd) every time a write is completed.
 * `append`: appends writes to dest file instead of truncating it (default `true`).
 * `mode`: specify the creating file `mode` (see [fs.open()](https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback) from Node.js core).
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).

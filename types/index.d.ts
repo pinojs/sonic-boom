@@ -13,6 +13,7 @@ export type SonicBoomOpts = {
     minLength?: number
     maxWrite?: number
     sync?: boolean
+    fsync?: boolean
     append?: boolean
     mode?: string | number
     mkdir?: boolean
