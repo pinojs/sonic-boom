@@ -1660,3 +1660,25 @@ test('._len must always be equal or greater than 0', (t) => {
 
   stream.end()
 })
+
+test('._len must always be equal or greater than 0', (t) => {
+  const n = 20
+  t.plan(n + 3)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, sync: true, minLength: 20 })
+
+  let str = ''
+  for (let i = 0; i < 20; i++) {
+    t.ok(stream.write('👀'))
+    str += '👀'
+  }
+
+  t.equal(stream._len, 0)
+
+  fs.readFile(dest, 'utf8', (err, data) => {
+    t.error(err)
+    t.equal(data, str)
+  })
+})
