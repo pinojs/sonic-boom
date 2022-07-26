@@ -1645,3 +1645,18 @@ test('fsync with async', (t) => {
     t.pass('close emitted')
   })
 })
+
+test('._len must always be equal or greater than 0', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, sync: true })
+
+  t.ok(stream.write('hello world 👀\n'))
+  t.ok(stream.write('another line 👀\n'))
+
+  t.equal(stream._len, 0)
+
+  stream.end()
+})

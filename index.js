@@ -155,6 +155,18 @@ function SonicBoom (opts) {
     this.emit('write', n)
 
     this._len -= n
+    // In case of multi-byte characters, the length of the written buffer
+    // may be different from the length of the string. Let's make sure
+    // we do not have an accumulated string with a negative length.
+    // This also mean that ._len is not precise, but it's not a problem as some
+    // writes might be triggered earlier then ._minLength.
+    if (this._len < 0) {
+      this._len = 0
+    }
+
+    // TODO if we have a multi-byte character in the buffer, we need to
+    // n might not be the same as this._writingBuf.length, so we might loose
+    // characters here. The solution to this problem is to use a Buffer for _writingBuf.
     this._writingBuf = this._writingBuf.slice(n)
 
     if (this._writingBuf.length) {
