@@ -159,7 +159,7 @@ function SonicBoom (opts) {
     // may be different from the length of the string. Let's make sure
     // we do not have an accumulated string with a negative length.
     // This also mean that ._len is not precise, but it's not a problem as some
-    // writes might be triggered earlier then ._minLength.
+    // writes might be triggered earlier than ._minLength.
     if (this._len < 0) {
       this._len = 0
     }
