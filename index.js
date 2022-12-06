@@ -364,11 +364,18 @@ SonicBoom.prototype.flushSync = function () {
     this._writingBuf = ''
   }
 
-  while (this._bufs.length) {
-    const buf = this._bufs[0]
+  let buf = ''
+  while (this._bufs.length || buf.length) {
+    if (buf.length <= 0) {
+      buf = this._bufs[0]
+    }
     try {
-      this._len -= fs.writeSync(this.fd, buf, 'utf8')
-      this._bufs.shift()
+      const n = fs.writeSync(this.fd, buf, 'utf8')
+      buf = buf.slice(n)
+      this._len = Math.max(this._len - n, 0)
+      if (buf.length <= 0) {
+        this._bufs.shift()
+      }
     } catch (err) {
       if (err.code !== 'EAGAIN' || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
