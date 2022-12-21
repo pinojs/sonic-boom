@@ -6,8 +6,8 @@
   "type": "commonjs",
   "types": "types/index.d.ts",
   "scripts": {
-    "test": "npm run test:types && standard && tap test.js",
-    "test:unit": "tap test.js",
+    "test": "npm run test:types && standard && npm run test:unit",
+    "test:unit": "tap test/",
     "test:types": "tsc && tsd && ts-node types/tests/test.ts",
     "prepare": "husky install"
   },
