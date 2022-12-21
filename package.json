@@ -7,7 +7,7 @@
   "types": "types/index.d.ts",
   "scripts": {
     "test": "npm run test:types && standard && npm run test:unit",
-    "test:unit": "tap test/",
+    "test:unit": "tap",
     "test:types": "tsc && tsd && ts-node types/tests/test.ts",
     "prepare": "husky install"
   },
