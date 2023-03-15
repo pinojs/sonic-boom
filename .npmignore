@@ -9,3 +9,12 @@
 tsconfig.json
 types/index.test-d.ts
 .nyc_output
+.husky
+fixtures
+.eslintignore
+.taprc
+bench.js
+check.js
+example.js
+test.js
+types/tests
