@@ -377,7 +377,8 @@ SonicBoom.prototype.flushSync = function () {
         this._bufs.shift()
       }
     } catch (err) {
-      if (!(err.code === 'EAGAIN' || err.code === 'EBUSY') || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+      const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
+      if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
       }
 
