@@ -126,7 +126,7 @@ function SonicBoom (opts) {
 
   this.release = (err, n) => {
     if (err) {
-      if (err.code === 'EAGAIN' && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
+      if ((err.code === 'EAGAIN' || err.code === 'EBUSY') && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
         if (this.sync) {
           // This error code should not happen in sync mode, because it is
           // not using the underlining operating system asynchronous functions.
@@ -377,7 +377,8 @@ SonicBoom.prototype.flushSync = function () {
         this._bufs.shift()
       }
     } catch (err) {
-      if (err.code !== 'EAGAIN' || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+      const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
+      if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
       }
 

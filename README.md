@@ -68,7 +68,7 @@ The options are:
 * `mode`: specify the creating file `mode` (see [fs.open()](https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback) from Node.js core).
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).
 * `retryEAGAIN(err, writeBufferLen, remainingBufferLen)`: a function that will be called when sonic-boom
-    write/writeSync/flushSync encounters a EAGAIN error. If the return value is
+    write/writeSync/flushSync encounters a EAGAIN or EBUSY error. If the return value is
     true sonic-boom will retry the operation, otherwise it will bubble the
     error. `err` is the error that caused this function to be called,
     `writeBufferLen` is the length of the buffer sonic-boom tried to write, and

@@ -320,3 +320,95 @@ test('retryEAGAIN receives remaining buffer if exceeds maxWrite', (t) => {
     t.pass('close emitted')
   })
 })
+
+test('retry on EBUSY', (t) => {
+  t.plan(7)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, buf, enc, cb) {
+    t.pass('fake fs.write called')
+    fakeFs.write = fs.write
+    const err = new Error('EBUSY')
+    err.code = 'EBUSY'
+    process.nextTick(cb, err)
+  }
+  const SonicBoom = proxyquire('..', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  t.ok(stream.write('hello world\n'))
+  t.ok(stream.write('something else\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
+
+test('emit error on async EBUSY', (t) => {
+  t.plan(11)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, buf, enc, cb) {
+    t.pass('fake fs.write called')
+    fakeFs.write = fs.write
+    const err = new Error('EBUSY')
+    err.code = 'EBUSY'
+    process.nextTick(cb, err)
+  }
+  const SonicBoom = proxyquire('..', {
+    fs: fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({
+    fd,
+    sync: false,
+    minLength: 12,
+    retryEAGAIN: (err, writeBufferLen, remainingBufferLen) => {
+      t.equal(err.code, 'EBUSY')
+      t.equal(writeBufferLen, 12)
+      t.equal(remainingBufferLen, 0)
+      return false
+    }
+  })
+
+  stream.on('ready', () => {
+    t.pass('ready emitted')
+  })
+
+  stream.once('error', err => {
+    t.equal(err.code, 'EBUSY')
+    t.ok(stream.write('something else\n'))
+  })
+
+  t.ok(stream.write('hello world\n'))
+
+  stream.end()
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.error(err)
+      t.equal(data, 'hello world\nsomething else\n')
+    })
+  })
+  stream.on('close', () => {
+    t.pass('close emitted')
+  })
+})
