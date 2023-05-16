@@ -16,7 +16,7 @@ function buildTests (test, sync) {
     t.plan(7)
 
     const fakeFs = Object.create(fs)
-    fakeFs.write = function (fd, buf, enc, cb) {
+    fakeFs.write = function (fd, buf, cb) {
       t.pass('fake fs.write called')
       fakeFs.write = fs.write
       const err = new Error('EAGAIN')
@@ -56,7 +56,7 @@ test('emit error on async EAGAIN', (t) => {
   t.plan(11)
 
   const fakeFs = Object.create(fs)
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     fakeFs.write = fs.write
     const err = new Error('EAGAIN')
@@ -109,7 +109,7 @@ test('retry on EAGAIN (sync)', (t) => {
   t.plan(7)
 
   const fakeFs = Object.create(fs)
-  fakeFs.writeSync = function (fd, buf, enc, cb) {
+  fakeFs.writeSync = function (fd, buf, cb) {
     t.pass('fake fs.writeSync called')
     fakeFs.writeSync = fs.writeSync
     const err = new Error('EAGAIN')
@@ -148,7 +148,7 @@ test('emit error on EAGAIN (sync)', (t) => {
   t.plan(11)
 
   const fakeFs = Object.create(fs)
-  fakeFs.writeSync = function (fd, buf, enc, cb) {
+  fakeFs.writeSync = function (fd, buf, cb) {
     t.pass('fake fs.writeSync called')
     fakeFs.writeSync = fs.writeSync
     const err = new Error('EAGAIN')
@@ -228,7 +228,7 @@ test('retryEAGAIN receives remaining buffer on async if write fails', (t) => {
     t.ok(stream.write('done'))
   })
 
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     fakeFs.write = fs.write
     const err = new Error('EAGAIN')
@@ -279,14 +279,14 @@ test('retryEAGAIN receives remaining buffer if exceeds maxWrite', (t) => {
     t.pass('ready emitted')
   })
 
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     const err = new Error('EAGAIN')
     err.code = 'EAGAIN'
     process.nextTick(cb, err)
   }
 
-  fakeFs.writeSync = function (fd, buf, enc, cb) {
+  fakeFs.writeSync = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     const err = new Error('EAGAIN')
     err.code = 'EAGAIN'
@@ -325,7 +325,7 @@ test('retry on EBUSY', (t) => {
   t.plan(7)
 
   const fakeFs = Object.create(fs)
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     fakeFs.write = fs.write
     const err = new Error('EBUSY')
@@ -364,7 +364,7 @@ test('emit error on async EBUSY', (t) => {
   t.plan(11)
 
   const fakeFs = Object.create(fs)
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, cb) {
     t.pass('fake fs.write called')
     fakeFs.write = fs.write
     const err = new Error('EBUSY')
