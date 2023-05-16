@@ -93,6 +93,7 @@ function SonicBoom (opts) {
   fd = fd || dest
 
   this._bufs = []
+  this._lens = []
   this._len = 0
   this.fd = -1
   this._writing = false
@@ -236,27 +237,16 @@ function emitDrain (sonic) {
 
 inherits(SonicBoom, EventEmitter)
 
-function bufLength (bufs) {
-  let idx = 0
-  const l = bufs.length
-  let size = 0
-  while (idx < l) {
-    size += bufs[idx].length
-    idx += 1
-  }
-  return size
-}
-
-function mergeBuf (bufs) {
+function mergeBuf (bufs, len) {
   if (bufs.length === 0) {
-    return null
+    return kEmptyBuffer
   }
 
   if (bufs.length === 1) {
     return bufs[0]
   }
 
-  return Buffer.concat(bufs)
+  return Buffer.concat(bufs, len)
 }
 
 SonicBoom.prototype.write = function (_data) {
@@ -267,6 +257,7 @@ SonicBoom.prototype.write = function (_data) {
   const data = Buffer.isBuffer(_data) ? _data : Buffer.from(_data, 'utf8')
   const len = this._len + data.length
   const bufs = this._bufs
+  const lens = this._lens
 
   if (this.maxLength && len > this.maxLength) {
     this.emit('drop', data)
@@ -275,11 +266,13 @@ SonicBoom.prototype.write = function (_data) {
 
   if (
     bufs.length === 0 ||
-    bufLength(bufs[bufs.length - 1]) + data.length > this.maxWrite
+    lens[lens.length - 1] + data.length > this.maxWrite
   ) {
     bufs.push([data])
+    lens.push(data.length)
   } else {
     bufs[bufs.length - 1].push(data)
+    lens[lens.length - 1] += data.length
   }
 
   this._len = len
@@ -393,11 +386,7 @@ SonicBoom.prototype.flushSync = function () {
   let buf = kEmptyBuffer
   while (this._bufs.length || buf.length) {
     if (buf.length <= 0) {
-      buf = mergeBuf(this._bufs[0])
-      if (buf === null) {
-        this._bufs.shift()
-        continue
-      }
+      buf = mergeBuf(this._bufs[0], this._lens[0])
     }
     try {
       const n = fs.writeSync(this.fd, buf)
@@ -427,7 +416,7 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite (sonic) {
   const release = sonic.release
   sonic._writing = true
-  sonic._writingBuf = (sonic._writingBuf.length && sonic._writingBuf) || mergeBuf(sonic._bufs.shift()) || kEmptyBuffer
+  sonic._writingBuf = sonic._writingBuf.length ? sonic._writingBuf : mergeBuf(sonic._bufs.shift(), sonic._lens.shift())
 
   if (sonic.sync) {
     try {

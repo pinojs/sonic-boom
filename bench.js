@@ -15,11 +15,8 @@ const dummyConsole = new Console(fs.createWriteStream('/dev/null'))
 
 const MAX = 10000
 
-let str = ''
-
-for (let i = 0; i < 10; i++) {
-  str += 'hello'
-}
+const buf = Buffer.alloc(50, 'hello', 'utf8')
+const str = buf.toString()
 
 setTimeout(doBench, 100)
 
@@ -59,6 +56,36 @@ const run = bench([
       dummyConsole.log(str)
     }
     setImmediate(cb)
+  },
+  function benchSonicBuf (cb) {
+    sonic.once('drain', cb)
+    for (let i = 0; i < MAX; i++) {
+      sonic.write(buf)
+    }
+  },
+  function benchSonicSyncBuf (cb) {
+    sonicSync.once('drain', cb)
+    for (let i = 0; i < MAX; i++) {
+      sonicSync.write(buf)
+    }
+  },
+  function benchSonic4kBuf (cb) {
+    sonic4k.once('drain', cb)
+    for (let i = 0; i < MAX; i++) {
+      sonic4k.write(buf)
+    }
+  },
+  function benchSonicSync4kBuf (cb) {
+    sonicSync4k.once('drain', cb)
+    for (let i = 0; i < MAX; i++) {
+      sonicSync4k.write(buf)
+    }
+  },
+  function benchCoreBuf (cb) {
+    core.once('drain', cb)
+    for (let i = 0; i < MAX; i++) {
+      core.write(buf)
+    }
   }
 ], 1000)
 
