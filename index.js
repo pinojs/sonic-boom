@@ -295,6 +295,7 @@ SonicBoom.prototype.flush = function () {
 
   if (this._bufs.length === 0) {
     this._bufs.push([])
+    this._lens.push(0)
   }
 
   actualWrite(this)
@@ -394,6 +395,7 @@ SonicBoom.prototype.flushSync = function () {
       this._len = Math.max(this._len - n, 0)
       if (buf.length <= 0) {
         this._bufs.shift()
+        this._lens.shift()
       }
     } catch (err) {
       const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
@@ -438,6 +440,7 @@ function actualClose (sonic) {
 
   sonic.destroyed = true
   sonic._bufs = []
+  sonic._lens = []
 
   if (sonic.fd !== 1 && sonic.fd !== 2) {
     fs.close(sonic.fd, done)
