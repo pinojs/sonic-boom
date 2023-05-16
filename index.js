@@ -57,7 +57,11 @@ function openFile (file, sonic) {
 
     // start
     if (!sonic._writing && sonic._len > sonic.minLength && !sonic.destroyed) {
-      actualWrite(sonic)
+      if (sonic.contentMode === 'buffer') {
+        actualWriteBuffer(sonic)
+      } else {
+        actualWrite(sonic)
+      }
     }
   }
 
@@ -88,16 +92,15 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mode, mkdir, retryEAGAIN, fsync } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {}
 
   fd = fd || dest
 
-  this._bufs = []
-  this._lens = []
   this._len = 0
   this.fd = -1
+  this._bufs = []
+  this._lens = []
   this._writing = false
-  this._writingBuf = kEmptyBuffer
   this._ending = false
   this._reopening = false
   this._asyncDrainScheduled = false
@@ -114,6 +117,29 @@ function SonicBoom (opts) {
   this.mode = mode
   this.retryEAGAIN = retryEAGAIN || (() => true)
   this.mkdir = mkdir || false
+
+  let fsWriteSync
+  let fsWrite
+  let _actualWrite
+  if (contentMode === 'buffer') {
+    this.contentMode = 'buffer'
+    this._writingBuf = kEmptyBuffer
+    this.write = writeBuffer
+    this.flush = flushBuffer
+    this.flushSync = flushBufferSync
+    fsWriteSync = () => fs.writeSync(this.fd, this._writingBuf)
+    fsWrite = () => fs.write(this.fd, this._writingBuf, this.release)
+    _actualWrite = actualWriteBuffer
+  } else {
+    this.contentMode = 'utf8'
+    this._writingBuf = ''
+    this.write = write
+    this.flush = flush
+    this.flushSync = flushSync
+    fsWriteSync = () => fs.writeSync(this.fd, this._writingBuf, 'utf8')
+    fsWrite = () => fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+    _actualWrite = actualWrite
+  }
 
   if (typeof fd === 'number') {
     this.fd = fd
@@ -143,9 +169,7 @@ function SonicBoom (opts) {
           }
         } else {
           // Let's give the destination some time to process the chunk.
-          setTimeout(() => {
-            fs.write(this.fd, this._writingBuf, this.release)
-          }, BUSY_WRITE_TIMEOUT)
+          setTimeout(fsWrite, BUSY_WRITE_TIMEOUT)
         }
       } else {
         this._writing = false
@@ -170,19 +194,19 @@ function SonicBoom (opts) {
     // TODO if we have a multi-byte character in the buffer, we need to
     // n might not be the same as this._writingBuf.length, so we might loose
     // characters here. The solution to this problem is to use a Buffer for _writingBuf.
-    this._writingBuf = this._writingBuf.subarray(n)
+    this._writingBuf = this._writingBuf.slice(n)
 
     if (this._writingBuf.length) {
       if (!this.sync) {
-        fs.write(this.fd, this._writingBuf, this.release)
+        fsWrite()
         return
       }
 
       try {
         do {
-          const n = fs.writeSync(this.fd, this._writingBuf)
+          const n = fsWriteSync()
           this._len -= n
-          this._writingBuf = this._writingBuf.subarray(n)
+          this._writingBuf = this._writingBuf.slice(n)
         } while (this._writingBuf.length)
       } catch (err) {
         this.release(err)
@@ -200,10 +224,10 @@ function SonicBoom (opts) {
       this._reopening = false
       this.reopen()
     } else if (len > this.minLength) {
-      actualWrite(this)
+      _actualWrite(this)
     } else if (this._ending) {
       if (len > 0) {
-        actualWrite(this)
+        _actualWrite(this)
       } else {
         this._writing = false
         actualClose(this)
@@ -249,12 +273,42 @@ function mergeBuf (bufs, len) {
   return Buffer.concat(bufs, len)
 }
 
-SonicBoom.prototype.write = function (_data) {
+function write (data) {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
 
-  const data = Buffer.isBuffer(_data) ? _data : Buffer.from(_data, 'utf8')
+  const len = this._len + data.length
+  const bufs = this._bufs
+
+  if (this.maxLength && len > this.maxLength) {
+    this.emit('drop', data)
+    return this._len < this._hwm
+  }
+
+  if (
+    bufs.length === 0 ||
+    bufs[bufs.length - 1].length + data.length > this.maxWrite
+  ) {
+    bufs.push('' + data)
+  } else {
+    bufs[bufs.length - 1] += data
+  }
+
+  this._len = len
+
+  if (!this._writing && this._len >= this.minLength) {
+    actualWrite(this)
+  }
+
+  return this._len < this._hwm
+}
+
+function writeBuffer (data) {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
   const len = this._len + data.length
   const bufs = this._bufs
   const lens = this._lens
@@ -278,13 +332,29 @@ SonicBoom.prototype.write = function (_data) {
   this._len = len
 
   if (!this._writing && this._len >= this.minLength) {
-    actualWrite(this)
+    actualWriteBuffer(this)
   }
 
   return this._len < this._hwm
 }
 
-SonicBoom.prototype.flush = function () {
+function flush () {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
+  if (this._writing || this.minLength <= 0) {
+    return
+  }
+
+  if (this._bufs.length === 0) {
+    this._bufs.push('')
+  }
+
+  actualWrite(this)
+}
+
+function flushBuffer () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
@@ -298,7 +368,7 @@ SonicBoom.prototype.flush = function () {
     this._lens.push(0)
   }
 
-  actualWrite(this)
+  actualWriteBuffer(this)
 }
 
 SonicBoom.prototype.reopen = function (file) {
@@ -364,13 +434,54 @@ SonicBoom.prototype.end = function () {
   }
 
   if (this._len > 0 && this.fd >= 0) {
-    actualWrite(this)
+    if (this.contentMode === 'buffer') {
+      actualWriteBuffer(this)
+    } else {
+      actualWrite(this)
+    }
   } else {
     actualClose(this)
   }
 }
 
-SonicBoom.prototype.flushSync = function () {
+function flushSync () {
+  if (this.destroyed) {
+    throw new Error('SonicBoom destroyed')
+  }
+
+  if (this.fd < 0) {
+    throw new Error('sonic boom is not ready yet')
+  }
+
+  if (!this._writing && this._writingBuf.length > 0) {
+    this._bufs.unshift(this._writingBuf)
+    this._writingBuf = ''
+  }
+
+  let buf = ''
+  while (this._bufs.length || buf) {
+    if (buf.length <= 0) {
+      buf = this._bufs[0]
+    }
+    try {
+      const n = fs.writeSync(this.fd, buf, 'utf8')
+      buf = buf.slice(n)
+      this._len = Math.max(this._len - n, 0)
+      if (buf.length <= 0) {
+        this._bufs.shift()
+      }
+    } catch (err) {
+      const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
+      if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+        throw err
+      }
+
+      sleep(BUSY_WRITE_TIMEOUT)
+    }
+  }
+}
+
+function flushBufferSync () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
@@ -416,6 +527,23 @@ SonicBoom.prototype.destroy = function () {
 }
 
 function actualWrite (sonic) {
+  const release = sonic.release
+  sonic._writing = true
+  sonic._writingBuf = sonic._writingBuf || sonic._bufs.shift() || ''
+
+  if (sonic.sync) {
+    try {
+      const written = fs.writeSync(sonic.fd, sonic._writingBuf, 'utf8')
+      release(null, written)
+    } catch (err) {
+      release(err)
+    }
+  } else {
+    fs.write(sonic.fd, sonic._writingBuf, 'utf8', release)
+  }
+}
+
+function actualWriteBuffer (sonic) {
   const release = sonic.release
   sonic._writing = true
   sonic._writingBuf = sonic._writingBuf.length ? sonic._writingBuf : mergeBuf(sonic._bufs.shift(), sonic._lens.shift())
