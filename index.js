@@ -420,18 +420,16 @@ function actualClose (sonic) {
   sonic.destroyed = true
   sonic._bufs = []
 
-  if (sonic.fd !== 1 && sonic.fd !== 2) {
-    fs.fsync(sonic.fd, closeWrapped)
-  } else {
-    setImmediate(done)
-  }
+  fs.fsync(sonic.fd, closeWrapped)
 
-  function closeWrapped (err) {
-    if (err) {
-      sonic.emit('error', err)
-      return
+  function closeWrapped () {
+    // We skip errors in fsync
+
+    if (sonic.fd !== 1 && sonic.fd !== 2) {
+      fs.close(sonic.fd, done)
+    } else {
+      done()
     }
-    fs.close(sonic.fd, done)
   }
 
   function done (err) {
