@@ -421,9 +421,17 @@ function actualClose (sonic) {
   sonic._bufs = []
 
   if (sonic.fd !== 1 && sonic.fd !== 2) {
-    fs.close(sonic.fd, done)
+    fs.fsync(sonic.fd, closeWrapped)
   } else {
     setImmediate(done)
+  }
+
+  function closeWrapped (err) {
+    if (err) {
+      sonic.emit('error', err)
+      return
+    }
+    fs.close(sonic.fd, done)
   }
 
   function done (err) {
