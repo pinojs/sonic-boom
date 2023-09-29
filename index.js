@@ -266,6 +266,7 @@ SonicBoom.prototype.write = function (data) {
 }
 
 SonicBoom.prototype.flush = function () {
+  proces._rawDebug('flush')
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
@@ -322,6 +323,7 @@ SonicBoom.prototype.reopen = function (file) {
 }
 
 SonicBoom.prototype.end = function () {
+  process._rawDebug('end')
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
@@ -351,6 +353,7 @@ SonicBoom.prototype.end = function () {
 }
 
 SonicBoom.prototype.flushSync = function () {
+  process._rawDebug('flushSync')
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
