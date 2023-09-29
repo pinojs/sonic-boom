@@ -423,29 +423,24 @@ function actualClose (sonic) {
   sonic.destroyed = true
   sonic._bufs = []
 
-  fs.fsync(sonic.fd, closeWrapped)
-
-  function closeWrapped () {
+  try {
+    fs.fsyncSync(sonic.fd)
+  } catch (err) {
+    process._rawDebug('fsync error ' + err)
     // We skip errors in fsync
-
-    if (sonic.fd !== 1 && sonic.fd !== 2) {
-      fs.close(sonic.fd, done)
-    } else {
-      done()
-    }
   }
 
-  function done (err) {
-    if (err) {
-      sonic.emit('error', err)
+  // if (sonic.fd !== 1 && sonic.fd !== 2) {
+    try {
+      fs.closeSync(sonic.fd)
+    } catch (err) {
+      process._rawDebug('close error ' + err)
+      process.nextTick(() => {
+        sonic.emit('error', err)
+      })
       return
     }
-
-    if (sonic._ending && !sonic._writing) {
-      sonic.emit('finish')
-    }
-    sonic.emit('close')
-  }
+  // }
 }
 
 /**
