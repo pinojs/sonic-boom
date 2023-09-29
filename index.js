@@ -266,7 +266,7 @@ SonicBoom.prototype.write = function (data) {
 }
 
 SonicBoom.prototype.flush = function () {
-  proces._rawDebug('flush')
+  process._rawDebug('flush')
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
