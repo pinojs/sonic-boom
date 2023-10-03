@@ -17,6 +17,7 @@ export type SonicBoomOpts = {
     append?: boolean
     mode?: string | number
     mkdir?: boolean
+    contentMode?: 'buffer' | 'utf8'
     retryEAGAIN?: (err: Error, writeBufferLen: number, remainingBufferLen: number) => boolean
 }
 

@@ -186,9 +186,9 @@ function buildTests (test, sync) {
         throw new Error('recoverable error')
       }
     } else {
-      fakeFs.write = function (fd, buf, enc, cb) {
+      fakeFs.write = function (fd, buf, ...args) {
         t.pass('fake fs.write called')
-        setTimeout(() => cb(new Error('recoverable error')), 0)
+        setTimeout(() => args.pop()(new Error('recoverable error')), 0)
       }
     }
 
@@ -253,13 +253,13 @@ test('write buffers that are not totally written', (t) => {
   t.plan(9)
 
   const fakeFs = Object.create(fs)
-  fakeFs.write = function (fd, buf, enc, cb) {
+  fakeFs.write = function (fd, buf, ...args) {
     t.pass('fake fs.write called')
-    fakeFs.write = function (fd, buf, enc, cb) {
+    fakeFs.write = function (fd, buf, ...args) {
       t.pass('calling real fs.write, ' + buf)
-      fs.write(fd, buf, enc, cb)
+      fs.write(fd, buf, ...args)
     }
-    process.nextTick(cb, null, 0)
+    process.nextTick(args[args.length - 1], null, 0)
   }
   const SonicBoom = proxyquire('../', {
     fs: fakeFs
@@ -336,12 +336,12 @@ test('write enormously large buffers async atomicly', (t) => {
 
   const buf = Buffer.alloc(1023).fill('x').toString()
 
-  fakeFs.write = function (fd, _buf, enc, cb) {
+  fakeFs.write = function (fd, _buf, ...args) {
     if (_buf.length % buf.length !== 0) {
       t.fail('write called with wrong buffer size')
     }
 
-    setImmediate(cb, null, _buf.length)
+    setImmediate(args[args.length - 1], null, _buf.length)
   }
 
   for (let i = 0; i < 1024 * 512; i++) {
@@ -375,9 +375,9 @@ test('write should not drop new data if buffer is not full', (t) => {
 
   const buf = Buffer.alloc(100).fill('x').toString()
 
-  fakeFs.write = function (fd, _buf, enc, cb) {
+  fakeFs.write = function (fd, _buf, ...args) {
     t.equal(_buf.length, buf.length + 2)
-    setImmediate(cb, null, _buf.length)
+    setImmediate(args[args.length - 1], null, _buf.length)
     fakeFs.write = () => t.error('shouldnt call write again')
     stream.end()
   }
@@ -407,9 +407,9 @@ test('write should drop new data if buffer is full', (t) => {
 
   const buf = Buffer.alloc(100).fill('x').toString()
 
-  fakeFs.write = function (fd, _buf, enc, cb) {
+  fakeFs.write = function (fd, _buf, ...args) {
     t.equal(_buf.length, buf.length)
-    setImmediate(cb, null, _buf.length)
+    setImmediate(args[args.length - 1], null, _buf.length)
     fakeFs.write = () => t.error('shouldnt call write more than once')
   }
 
