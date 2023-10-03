@@ -564,10 +564,16 @@ function actualClose (sonic) {
   sonic._bufs = []
   sonic._lens = []
 
-  if (sonic.fd !== 1 && sonic.fd !== 2) {
-    fs.close(sonic.fd, done)
-  } else {
-    setImmediate(done)
+  fs.fsync(sonic.fd, closeWrapped)
+
+  function closeWrapped () {
+    // We skip errors in fsync
+
+    if (sonic.fd !== 1 && sonic.fd !== 2) {
+      fs.close(sonic.fd, done)
+    } else {
+      done()
+    }
   }
 
   function done (err) {

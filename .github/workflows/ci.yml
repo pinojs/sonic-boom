@@ -24,7 +24,7 @@ jobs:
       contents: read
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -41,11 +41,11 @@ jobs:
         node-version: [14, 16, 18]
         os: [macos-latest, ubuntu-latest, windows-latest]
         exclude:
-          - os: windows-latest
-            node-version: 14
+          - node-version: 14
+            os: windows-latest
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
