@@ -136,7 +136,7 @@ function buildTests (test, sync) {
       fd,
       sync: false,
       fsync: true,
-      minLength: 100
+      minLength: 4096
     })
 
     stream.on('ready', () => {
@@ -182,7 +182,7 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({
       fd,
       sync: false,
-      minLength: 100
+      minLength: 4096
     })
 
     stream.on('ready', () => {
@@ -268,7 +268,7 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({
       fd,
       sync: false,
-      minLength: 1000
+      minLength: 4096
     })
 
     stream.on('ready', () => {
@@ -310,6 +310,8 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({
       fd,
       sync: false,
+
+      // to trigger write without calling flush
       minLength: 1
     })
 
