@@ -418,10 +418,6 @@ function flushBuffer (cb) {
     return
   }
 
-  if (cb) {
-    callFlushCallbackOnDrain.call(this, cb)
-  }
-
   if (this._bufs.length === 0) {
     this._bufs.push([])
     this._lens.push(0)

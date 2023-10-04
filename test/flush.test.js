@@ -134,7 +134,7 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({
       fd,
-      sync: false,
+      sync,
       fsync: true,
       minLength: 4096
     })
@@ -151,10 +151,18 @@ function buildTests (test, sync) {
       t.pass('fake fsyncSync called')
     }
 
-    fakeFs.write = function (...args) {
-      t.pass('fake fs.write called')
-      fakeFs.write = fs.write
-      return fakeFs.write(...args)
+    function successOnAsyncOrSyncFn (isSync, originalFn) {
+      return function (...args) {
+        t.pass(`fake fs.${originalFn.name} called`)
+        fakeFs[originalFn.name] = originalFn
+        return fakeFs[originalFn.name](...args)
+      }
+    }
+
+    if (sync) {
+      fakeFs.writeSync = successOnAsyncOrSyncFn(true, fs.writeSync)
+    } else {
+      fakeFs.write = successOnAsyncOrSyncFn(false, fs.write)
     }
 
     t.ok(stream.write('hello world\n'))
@@ -181,7 +189,7 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({
       fd,
-      sync: false,
+      sync,
       minLength: 4096
     })
 
@@ -191,17 +199,33 @@ function buildTests (test, sync) {
 
     const err = new Error('other')
     err.code = 'other'
-    fakeFs.fsync = function (fd, cb) {
-      fakeFs.fsync = fs.fsync
-      Error.captureStackTrace(err)
-      t.pass('fake fs.fsync called')
-      cb(err)
+
+    function onFsyncOnFsyncSync (isSync, originalFn) {
+      return function (...args) {
+        Error.captureStackTrace(err)
+        t.pass(`fake fs.${originalFn.name} called`)
+        fakeFs[originalFn.name] = originalFn
+        const cb = args[args.length - 1]
+
+        cb(err)
+      }
     }
 
-    fakeFs.write = function (...args) {
-      t.pass('fake fs.write called')
-      fakeFs.write = fs.write
-      return fakeFs.write(...args)
+    // only one is called depends on sync
+    fakeFs.fsync = onFsyncOnFsyncSync(false, fs.fsync)
+
+    function successOnAsyncOrSyncFn (isSync, originalFn) {
+      return function (...args) {
+        t.pass(`fake fs.${originalFn.name} called`)
+        fakeFs[originalFn.name] = originalFn
+        return fakeFs[originalFn.name](...args)
+      }
+    }
+
+    if (sync) {
+      fakeFs.writeSync = successOnAsyncOrSyncFn(true, fs.writeSync)
+    } else {
+      fakeFs.write = successOnAsyncOrSyncFn(false, fs.write)
     }
 
     t.ok(stream.write('hello world\n'))
@@ -267,7 +291,7 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({
       fd,
-      sync: false,
+      sync,
       minLength: 4096
     })
 
@@ -277,12 +301,23 @@ function buildTests (test, sync) {
 
     const err = new Error('other')
     err.code = 'other'
-    fakeFs.write = function (fd, buf, enc, cb) {
-      fakeFs.write = fs.write
-      Error.captureStackTrace(err)
-      t.pass('fake fs.write called')
-      cb(err)
+
+    function onWriteOrWriteSync (isSync, originalFn) {
+      return function (...args) {
+        Error.captureStackTrace(err)
+        t.pass(`fake fs.${originalFn.name} called`)
+        fakeFs[originalFn.name] = originalFn
+
+        if (isSync) throw err
+        const cb = args[args.length - 1]
+
+        cb(err)
+      }
     }
+
+    // only one is called depends on sync
+    fakeFs.write = onWriteOrWriteSync(false, fs.write)
+    fakeFs.writeSync = onWriteOrWriteSync(true, fs.writeSync)
 
     t.ok(stream.write('hello world\n'))
     stream.flush((err) => {
@@ -309,7 +344,7 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({
       fd,
-      sync: false,
+      sync,
 
       // to trigger write without calling flush
       minLength: 1
@@ -319,16 +354,22 @@ function buildTests (test, sync) {
       t.pass('ready emitted')
     })
 
-    fakeFs.write = function (...args) {
-      stream.flush((err) => {
-        if (err) t.fail(err)
-        else t.pass('flush cb called')
-      })
+    function onWriteOrWriteSync (originalFn) {
+      return function (...args) {
+        stream.flush((err) => {
+          if (err) t.fail(err)
+          else t.pass('flush cb called')
+        })
 
-      t.pass('fake fs.write called')
-      fakeFs.write = fs.write
-      return fakeFs.write(...args)
+        t.pass(`fake fs.${originalFn.name} called`)
+        fakeFs[originalFn.name] = originalFn
+        return originalFn(...args)
+      }
     }
+
+    // only one is called depends on sync
+    fakeFs.write = onWriteOrWriteSync(fs.write)
+    fakeFs.writeSync = onWriteOrWriteSync(fs.writeSync)
 
     t.ok(stream.write('hello world\n'))
   })
