@@ -336,12 +336,40 @@ function writeBuffer (data) {
   return this._len < this._hwm
 }
 
-function flush () {
-  if (this.destroyed) {
-    throw new Error('SonicBoom destroyed')
+function callFlushCallbackOnDrain (cb) {
+  const onDrain = () => {
+    cb()
+    this.off('error', onError)
+  }
+  const onError = (err) => {
+    cb(err)
+    this.off('drain', onDrain)
+  }
+  this.once('drain', onDrain)
+  this.once('error', onError)
+}
+
+function flush (cb) {
+  if (cb != null && typeof cb !== 'function') {
+    throw new Error('flush cb must be a function')
   }
 
-  if (this._writing || this.minLength <= 0) {
+  if (this.destroyed) {
+    const error = new Error('SonicBoom destroyed')
+    cb?.(error)
+    throw error
+  }
+
+  if (this.minLength <= 0) {
+    cb?.()
+    return
+  }
+
+  if (cb) {
+    callFlushCallbackOnDrain.call(this, cb)
+  }
+
+  if (this._writing) {
     return
   }
 
@@ -352,13 +380,24 @@ function flush () {
   this._actualWrite()
 }
 
-function flushBuffer () {
+function flushBuffer (cb) {
+  if (cb != null && typeof cb !== 'function') {
+    throw new Error('flush cb must be a function')
+  }
+
   if (this.destroyed) {
-    throw new Error('SonicBoom destroyed')
+    const error = new Error('SonicBoom destroyed')
+    cb?.(error)
+    throw error
   }
 
   if (this._writing || this.minLength <= 0) {
+    cb?.()
     return
+  }
+
+  if (cb) {
+    callFlushCallbackOnDrain.call(this, cb)
   }
 
   if (this._bufs.length === 0) {
