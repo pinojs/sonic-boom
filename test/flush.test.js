@@ -122,6 +122,95 @@ function buildTests (test, sync) {
     })
   })
 
+  test('only call fsyncSync and not fsync when fsync: true', (t) => {
+    t.plan(6)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({
+      fd,
+      sync: false,
+      fsync: true,
+      minLength: 100
+    })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    fakeFs.fsync = function (fd, cb) {
+      t.fail('fake fs.fsync called while should not')
+      cb()
+    }
+    fakeFs.fsyncSync = function (fd) {
+      t.pass('fake fsyncSync called')
+    }
+
+    fakeFs.write = function (...args) {
+      t.pass('fake fs.write called')
+      fakeFs.write = fs.write
+      return fakeFs.write(...args)
+    }
+
+    t.ok(stream.write('hello world\n'))
+    stream.flush((err) => {
+      if (err) t.fail(err)
+      else t.pass('flush cb called')
+
+      process.nextTick(() => {
+        // to make sure fsync is not called as well
+        t.pass('nextTick after flush called')
+      })
+    })
+  })
+
+  test('call flush cb with error when fsync failed', (t) => {
+    t.plan(5)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({
+      fd,
+      sync: false,
+      minLength: 100
+    })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    const err = new Error('other')
+    err.code = 'other'
+    fakeFs.fsync = function (fd, cb) {
+      fakeFs.fsync = fs.fsync
+      Error.captureStackTrace(err)
+      t.pass('fake fs.fsync called')
+      cb(err)
+    }
+
+    fakeFs.write = function (...args) {
+      t.pass('fake fs.write called')
+      fakeFs.write = fs.write
+      return fakeFs.write(...args)
+    }
+
+    t.ok(stream.write('hello world\n'))
+    stream.flush((err) => {
+      if (err) t.equal(err.code, 'other')
+      else t.fail('flush cb called without an error')
+    })
+  })
+
   test('call flush cb even when have no data', (t) => {
     t.plan(2)
 
@@ -160,14 +249,10 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
     stream.destroy()
 
-    try {
-      stream.flush((err) => {
-        if (err) t.pass(err)
-        else t.fail('flush cb called without an error')
-      })
-    } catch {
-      // ignore
-    }
+    stream.flush((err) => {
+      if (err) t.pass(err)
+      else t.fail('flush cb called without an error')
+    })
   })
 
   test('call flush cb with an error when failed to flush', (t) => {

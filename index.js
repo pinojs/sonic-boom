@@ -338,13 +338,19 @@ function writeBuffer (data) {
 
 function callFlushCallbackOnDrain (cb) {
   const onDrain = () => {
-    cb()
+    // only if _fsync is false to avoid double fsync
+    if (!this._fsync) {
+      fs.fsync(this.fd, cb)
+    } else {
+      cb()
+    }
     this.off('error', onError)
   }
   const onError = (err) => {
     cb(err)
     this.off('drain', onDrain)
   }
+
   this.once('drain', onDrain)
   this.once('error', onError)
 }
@@ -356,7 +362,11 @@ function flush (cb) {
 
   if (this.destroyed) {
     const error = new Error('SonicBoom destroyed')
-    cb?.(error)
+    if (cb) {
+      cb(error)
+      return
+    }
+
     throw error
   }
 
@@ -387,12 +397,24 @@ function flushBuffer (cb) {
 
   if (this.destroyed) {
     const error = new Error('SonicBoom destroyed')
-    cb?.(error)
+    if (cb) {
+      cb(error)
+      return
+    }
+
     throw error
   }
 
-  if (this._writing || this.minLength <= 0) {
+  if (this.minLength <= 0) {
     cb?.()
+    return
+  }
+
+  if (cb) {
+    callFlushCallbackOnDrain.call(this, cb)
+  }
+
+  if (this._writing) {
     return
   }
 
