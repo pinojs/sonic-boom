@@ -54,12 +54,12 @@ function openFile (file, sonic) {
       sonic.emit('ready')
     }
 
-    if (sonic._reopening) {
+    if (sonic._reopening || sonic.destroyed) {
       return
     }
 
     // start
-    if (!sonic._writing && sonic._len > sonic.minLength && !sonic.destroyed) {
+    if ((!sonic._writing && sonic._len > sonic.minLength) || sonic._flushPending) {
       sonic._actualWrite()
     }
   }
@@ -103,6 +103,7 @@ function SonicBoom (opts) {
   this._ending = false
   this._reopening = false
   this._asyncDrainScheduled = false
+  this._flushPending = false
   this._hwm = Math.max(minLength || 0, 16387)
   this.file = null
   this.destroyed = false
@@ -337,16 +338,22 @@ function writeBuffer (data) {
 }
 
 function callFlushCallbackOnDrain (cb) {
+  this._flushPending = true
   const onDrain = () => {
     // only if _fsync is false to avoid double fsync
     if (!this._fsync) {
-      fs.fsync(this.fd, cb)
+      fs.fsync(this.fd, (err) => {
+        this._flushPending = false
+        cb(err)
+      })
     } else {
+      this._flushPending = false
       cb()
     }
     this.off('error', onError)
   }
   const onError = (err) => {
+    this._flushPending = false
     cb(err)
     this.off('drain', onDrain)
   }

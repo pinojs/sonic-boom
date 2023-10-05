@@ -373,4 +373,47 @@ function buildTests (test, sync) {
 
     t.ok(stream.write('hello world\n'))
   })
+
+  test('call flush cb when writing and trying to flush before ready (on async)', (t) => {
+    t.plan(4)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      fs: fakeFs
+    })
+
+    fakeFs.open = fsOpen
+
+    const dest = file()
+    const stream = new SonicBoom({
+      fd: dest,
+      // only async as sync is part of the constructor so the user will not be able to call write/flush
+      // before ready
+      sync: false,
+
+      // to not trigger write without calling flush
+      minLength: 4096
+    })
+
+    stream.on('ready', () => {
+      t.pass('ready emitted')
+    })
+
+    function fsOpen (...args) {
+      process.nextTick(() => {
+        // try writing and flushing before ready and in the middle of opening
+        t.pass('fake fs.open called')
+        t.ok(stream.write('hello world\n'))
+
+        // calling flush
+        stream.flush((err) => {
+          if (err) t.fail(err)
+          else t.pass('flush cb called')
+        })
+
+        fakeFs.open = fs.open
+        fs.open(...args)
+      })
+    }
+  })
 }
