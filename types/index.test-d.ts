@@ -21,6 +21,7 @@ expectType<any>( new SonicBoomCjsNamed({ fd: 1}));
 expectType<boolean>(sonic.write('hello sonic\n'));
 
 sonic.flush();
+sonic.flush((err?: Error) => undefined);
 
 sonic.flushSync();
 
