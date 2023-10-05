@@ -83,10 +83,12 @@ For `sync:true` this is not relevant because the `'ready'` event will be fired w
 Writes the string to the file.
 It will return false to signal the producer to slow down.
 
-### SonicBoom#flush()
+### SonicBoom#flush([cb])
 
 Writes the current buffer to the file if a write was not in progress.
 Do nothing if `minLength` is zero or if it is already writing.
+
+call the callback when the flush operation is completed. when failed the callback is called with an error.
 
 ### SonicBoom#reopen([file])
 
