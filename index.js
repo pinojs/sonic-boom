@@ -538,7 +538,11 @@ function flushSync () {
     }
   }
 
-  fs.fsyncSync(this.fd)
+  try {
+    fs.fsyncSync(this.fd)
+  } catch {
+    // Skip the error. The fd might not support fsync.
+  }
 }
 
 function flushBufferSync () {
