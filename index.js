@@ -537,6 +537,8 @@ function flushSync () {
       sleep(BUSY_WRITE_TIMEOUT)
     }
   }
+
+  fs.fsyncSync(this.fd)
 }
 
 function flushBufferSync () {

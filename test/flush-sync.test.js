@@ -80,7 +80,7 @@ test('retry in flushSync on EAGAIN', (t) => {
 })
 
 test('throw error in flushSync on EAGAIN', (t) => {
-  t.plan(11)
+  t.plan(12)
 
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
@@ -112,6 +112,12 @@ test('throw error in flushSync on EAGAIN', (t) => {
     t.pass('fake fs.write called')
     fakeFs.writeSync = fs.writeSync
     throw err
+  }
+
+  fakeFs.fsyncSync = function (...args) {
+    t.pass('fake fs.fsyncSync called')
+    fakeFs.fsyncSync = fs.fsyncSync
+    return fs.fsyncSync.apply(null, args)
   }
 
   t.ok(stream.write('hello world\n'))
