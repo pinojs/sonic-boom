@@ -239,6 +239,14 @@ function SonicBoom (opts) {
     }
   })
 }
+
+/**
+ * Release the writingBuf after fs.write n bytes data
+ * @param {string | Buffer} writingBuf - currently writing buffer, usually be instance._writingBuf.
+ * @param {number} len - currently buffer length, usually be instance._len.
+ * @param {number} n - number of bytes fs already written
+ * @returns {{writingBuf: string | Buffer, len: number}} released writingBuf and length
+ */
 function releaseWritingBuf (writingBuf, len, n) {
   // if writingBuf.length is equal to n, that means writingBuf contains no multi-byte character
   if (typeof writingBuf === 'string' && writingBuf.length !== n) {
