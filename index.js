@@ -248,8 +248,8 @@ function SonicBoom (opts) {
  * @returns {{writingBuf: string | Buffer, len: number}} released writingBuf and length
  */
 function releaseWritingBuf (writingBuf, len, n) {
-  // if writingBuf.length is equal to n, that means writingBuf contains no multi-byte character
-  if (typeof writingBuf === 'string' && writingBuf.length !== n) {
+  // if Buffer.byteLength is equal to n, that means writingBuf contains no multi-byte character
+  if (typeof writingBuf === 'string' && Buffer.byteLength(writingBuf) !== n) {
     // Since the fs.write callback parameter `n` means how many bytes the passed of string
     // We calculate the original string length for avoiding the multi-byte character issue
     n = Buffer.from(writingBuf).subarray(0, n).toString().length
