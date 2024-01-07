@@ -179,21 +179,9 @@ function SonicBoom (opts) {
     }
 
     this.emit('write', n)
-
-    this._len -= n
-    // In case of multi-byte characters, the length of the written buffer
-    // may be different from the length of the string. Let's make sure
-    // we do not have an accumulated string with a negative length.
-    // This also mean that ._len is not precise, but it's not a problem as some
-    // writes might be triggered earlier than ._minLength.
-    if (this._len < 0) {
-      this._len = 0
-    }
-
-    // TODO if we have a multi-byte character in the buffer, we need to
-    // n might not be the same as this._writingBuf.length, so we might loose
-    // characters here. The solution to this problem is to use a Buffer for _writingBuf.
-    this._writingBuf = this._writingBuf.slice(n)
+    const releasedBufObj = releaseWritingBuf(this._writingBuf, this._len, n)
+    this._len = releasedBufObj.len
+    this._writingBuf = releasedBufObj.writingBuf
 
     if (this._writingBuf.length) {
       if (!this.sync) {
@@ -204,8 +192,9 @@ function SonicBoom (opts) {
       try {
         do {
           const n = fsWriteSync()
-          this._len -= n
-          this._writingBuf = this._writingBuf.slice(n)
+          const releasedBufObj = releaseWritingBuf(this._writingBuf, this._len, n)
+          this._len = releasedBufObj.len
+          this._writingBuf = releasedBufObj.writingBuf
         } while (this._writingBuf.length)
       } catch (err) {
         this.release(err)
@@ -249,6 +238,25 @@ function SonicBoom (opts) {
       this._asyncDrainScheduled = false
     }
   })
+}
+
+/**
+ * Release the writingBuf after fs.write n bytes data
+ * @param {string | Buffer} writingBuf - currently writing buffer, usually be instance._writingBuf.
+ * @param {number} len - currently buffer length, usually be instance._len.
+ * @param {number} n - number of bytes fs already written
+ * @returns {{writingBuf: string | Buffer, len: number}} released writingBuf and length
+ */
+function releaseWritingBuf (writingBuf, len, n) {
+  // if Buffer.byteLength is equal to n, that means writingBuf contains no multi-byte character
+  if (typeof writingBuf === 'string' && Buffer.byteLength(writingBuf) !== n) {
+    // Since the fs.write callback parameter `n` means how many bytes the passed of string
+    // We calculate the original string length for avoiding the multi-byte character issue
+    n = Buffer.from(writingBuf).subarray(0, n).toString().length
+  }
+  len = Math.max(len - n, 0)
+  writingBuf = writingBuf.slice(n)
+  return { writingBuf, len }
 }
 
 function emitDrain (sonic) {
@@ -523,8 +531,9 @@ function flushSync () {
     }
     try {
       const n = fs.writeSync(this.fd, buf, 'utf8')
-      buf = buf.slice(n)
-      this._len = Math.max(this._len - n, 0)
+      const releasedBufObj = releaseWritingBuf(buf, this._len, n)
+      buf = releasedBufObj.writingBuf
+      this._len = releasedBufObj.len
       if (buf.length <= 0) {
         this._bufs.shift()
       }
