@@ -42,6 +42,8 @@ function openFile (file, sonic) {
       return
     }
 
+    const reopening = sonic._reopening
+
     sonic.fd = fd
     sonic.file = file
     sonic._reopening = false
@@ -54,13 +56,15 @@ function openFile (file, sonic) {
       sonic.emit('ready')
     }
 
-    if (sonic._reopening || sonic.destroyed) {
+    if (sonic.destroyed) {
       return
     }
 
     // start
     if ((!sonic._writing && sonic._len > sonic.minLength) || sonic._flushPending) {
       sonic._actualWrite()
+    } else if (reopening) {
+      process.nextTick(() => sonic.emit('drain'))
     }
   }
 
@@ -461,6 +465,9 @@ SonicBoom.prototype.reopen = function (file) {
     throw new Error('Unable to reopen a file descriptor, you must pass a file to SonicBoom')
   }
 
+  if (file) {
+    this.file = file
+  }
   this._reopening = true
 
   if (this._writing) {
@@ -478,7 +485,7 @@ SonicBoom.prototype.reopen = function (file) {
     }
   })
 
-  openFile(file || this.file, this)
+  openFile(this.file, this)
 }
 
 SonicBoom.prototype.end = function () {

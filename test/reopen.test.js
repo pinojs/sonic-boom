@@ -32,7 +32,7 @@ function buildTests (test, sync) {
         t.pass('ready emitted')
         t.ok(stream.write('after reopen\n'))
 
-        stream.on('drain', () => {
+        stream.once('drain', () => {
           fs.readFile(after, 'utf8', (err, data) => {
             t.error(err)
             t.equal(data, 'hello world\nsomething else\n')
@@ -70,7 +70,7 @@ function buildTests (test, sync) {
         t.ok(stream.write('after reopen\n'))
         stream.flush()
 
-        stream.on('drain', () => {
+        stream.once('drain', () => {
           fs.readFile(after, 'utf8', (err, data) => {
             t.error(err)
             t.equal(data, 'hello world\nsomething else\n')
@@ -103,7 +103,7 @@ function buildTests (test, sync) {
   })
 
   test('reopen with file', (t) => {
-    t.plan(9)
+    t.plan(10)
 
     const dest = file()
     const stream = new SonicBoom({ dest, minLength: 0, sync })
@@ -117,12 +117,13 @@ function buildTests (test, sync) {
       t.pass('drain emitted')
 
       stream.reopen(after)
+      t.equal(stream.file, after)
 
       stream.once('ready', () => {
         t.pass('ready emitted')
         t.ok(stream.write('after reopen\n'))
 
-        stream.on('drain', () => {
+        stream.once('drain', () => {
           fs.readFile(dest, 'utf8', (err, data) => {
             t.error(err)
             t.equal(data, 'hello world\nsomething else\n')
@@ -197,6 +198,42 @@ function buildTests (test, sync) {
           t.pass('close emitted')
         })
       }, 0)
+    })
+  })
+
+  test('reopen emits drain', (t) => {
+    t.plan(9)
+
+    const dest = file()
+    const stream = new SonicBoom({ dest, sync })
+
+    t.ok(stream.write('hello world\n'))
+    t.ok(stream.write('something else\n'))
+
+    const after = dest + '-moved'
+
+    stream.once('drain', () => {
+      t.pass('drain emitted')
+
+      fs.renameSync(dest, after)
+      stream.reopen()
+
+      stream.once('drain', () => {
+        t.pass('drain emitted')
+        t.ok(stream.write('after reopen\n'))
+
+        stream.once('drain', () => {
+          fs.readFile(after, 'utf8', (err, data) => {
+            t.error(err)
+            t.equal(data, 'hello world\nsomething else\n')
+            fs.readFile(dest, 'utf8', (err, data) => {
+              t.error(err)
+              t.equal(data, 'after reopen\n')
+              stream.end()
+            })
+          })
+        })
+      })
     })
   })
 }
