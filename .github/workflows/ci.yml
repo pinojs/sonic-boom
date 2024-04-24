@@ -38,7 +38,7 @@ jobs:
       contents: read
     strategy:
       matrix:
-        node-version: [14, 16, 18]
+        node-version: [18, 20]
         os: [macos-latest, ubuntu-latest, windows-latest]
         exclude:
           - node-version: 14
