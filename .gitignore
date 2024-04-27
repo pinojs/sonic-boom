@@ -151,3 +151,4 @@ profile-*
 # node clinic
 *clinic*
 /.idea/
+.tap
