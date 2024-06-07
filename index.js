@@ -390,7 +390,7 @@ function flush (cb) {
   }
 
   if (this.minLength <= 0) {
-    if (cb) cb();
+    cb?.()
     return
   }
 
