@@ -115,7 +115,7 @@ function SonicBoom (opts) {
   this.maxLength = maxLength || 0
   this.maxWrite = maxWrite || MAX_WRITE
   this._periodicFlush = periodicFlush || 0
-  this._periodicFlushIID = 0
+  this._periodicFlushTimer = undefined
   this.sync = sync || false
   this.writable = true
   this._fsync = fsync || false
@@ -246,7 +246,8 @@ function SonicBoom (opts) {
   })
 
   if (this._periodicFlush !== 0) {
-    this._periodicFlushIID = setInterval(() => this.flush(null), this._periodicFlush)
+    this._periodicFlushTimer = setInterval(() => this.flush(null), this._periodicFlush)
+    this._periodicFlushTimer.unref()
   }
 }
 
@@ -652,8 +653,8 @@ function actualClose (sonic) {
     return
   }
 
-  if (sonic._periodicFlushIID !== 0) {
-    clearInterval(sonic._periodicFlushIID)
+  if (sonic._periodicFlushTimer !== undefined) {
+    clearInterval(sonic._periodicFlushTimer)
   }
 
   sonic.destroyed = true

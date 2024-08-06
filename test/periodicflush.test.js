@@ -1,5 +1,6 @@
 'use strict'
 
+const FakeTimers = require('@sinonjs/fake-timers')
 const fs = require('fs')
 const SonicBoom = require('../')
 const { file, runTests } = require('./helper')
@@ -13,6 +14,7 @@ function buildTests (test, sync) {
   test('periodicflush_off', (t) => {
     t.plan(4)
 
+    const clock = FakeTimers.install()
     const dest = file()
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync, minLength: 5000 })
@@ -28,11 +30,15 @@ function buildTests (test, sync) {
         t.pass('file empty')
       })
     }, 2000)
+
+    clock.tick(2000)
+    clock.uninstall()
   })
 
   test('periodicflush_on', (t) => {
     t.plan(4)
 
+    const clock = FakeTimers.install()
     const dest = file()
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync, minLength: 5000, periodicFlush: 1000 })
@@ -48,5 +54,8 @@ function buildTests (test, sync) {
         t.pass('file not empty')
       })
     }, 2000)
+
+    clock.tick(2000)
+    clock.uninstall()
   })
 }

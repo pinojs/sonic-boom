@@ -32,7 +32,7 @@ sonic.end();
 sonic.destroy();
 
 const extraSonic = new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, sync: true, append: true, mode: 0o644, mkdir: true});
-new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, sync: true, append: true, mode: 0o644, mkdir: true, dest: '/dev/null'});
+new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, periodicFlush: 15000, sync: true, append: true, mode: 0o644, mkdir: true, dest: '/dev/null'});
 new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, sync: true, append: true, mode: 0o644, mkdir: true, dest: 1});
 new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, sync: true, fsync: true, append: true, mode: 0o644, mkdir: true});
 new SonicBoom({fd: 1, minLength: 0, maxWrite: 16384, sync: true, fsync: true, append: true, mode: 0o644, mkdir: true, contentMode: 'buffer' });
