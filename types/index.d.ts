@@ -12,6 +12,7 @@ export type SonicBoomOpts = {
     maxLength?: number
     minLength?: number
     maxWrite?: number
+    periodicFlush?: number
     sync?: boolean
     fsync?: boolean
     append?: boolean

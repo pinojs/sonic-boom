@@ -62,6 +62,7 @@ The options are:
 * `maxLength`: the maximum length of the internal buffer. If a write operation would cause the buffer
   to exceed `maxLength`, the data written is dropped and a `drop` event is emitted with the dropped data
 * `maxWrite`: the maximum number of bytes that can be written; default: 16384
+* `periodicFlush`: calls `flush` every x`ms`.
 * `sync`: perform writes synchronously (similar to `console.log`).
 * `fsync`: perform a [fsyncSync](https://nodejs.org/api/fs.html#fsfsyncsyncfd) every time a write is completed.
 * `append`: appends writes to dest file instead of truncating it (default `true`).

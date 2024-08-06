@@ -95,7 +95,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, maxWrite, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {}
 
   fd = fd || dest
 
@@ -114,6 +114,8 @@ function SonicBoom (opts) {
   this.minLength = minLength || 0
   this.maxLength = maxLength || 0
   this.maxWrite = maxWrite || MAX_WRITE
+  this._periodicFlush = periodicFlush || 0
+  this._periodicFlushTimer = undefined
   this.sync = sync || false
   this.writable = true
   this._fsync = fsync || false
@@ -242,6 +244,11 @@ function SonicBoom (opts) {
       this._asyncDrainScheduled = false
     }
   })
+
+  if (this._periodicFlush !== 0) {
+    this._periodicFlushTimer = setInterval(() => this.flush(null), this._periodicFlush)
+    this._periodicFlushTimer.unref()
+  }
 }
 
 /**
@@ -644,6 +651,10 @@ function actualClose (sonic) {
   if (sonic.fd === -1) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
+  }
+
+  if (sonic._periodicFlushTimer !== undefined) {
+    clearInterval(sonic._periodicFlushTimer)
   }
 
   sonic.destroyed = true
