@@ -636,6 +636,10 @@ function actualWriteBuffer () {
       release(err)
     }
   } else {
+    // fs.write will need to copy string to buffer anyway so
+    // we do it here to avoid the overhead of calculating the buffer size
+    // in releaseWritingBuf.
+    this._writingBuf = Buffer.from(this._writingBuf)
     fs.write(this.fd, this._writingBuf, release)
   }
 }
