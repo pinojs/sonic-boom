@@ -16,6 +16,9 @@ const MAX_WRITE = 16 * 1024
 const kContentModeBuffer = 'buffer'
 const kContentModeUtf8 = 'utf8'
 
+const [major, minor] = process.versions.node.split('.').map(Number)
+const kCopyBuffer = major >= 22 && minor >= 7
+
 function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
@@ -639,7 +642,9 @@ function actualWriteBuffer () {
     // fs.write will need to copy string to buffer anyway so
     // we do it here to avoid the overhead of calculating the buffer size
     // in releaseWritingBuf.
-    this._writingBuf = Buffer.from(this._writingBuf)
+		if (kCopyBuffer) {
+			this._writingBuf = Buffer.from(this._writingBuf)
+		}
     fs.write(this.fd, this._writingBuf, release)
   }
 }
