@@ -34,7 +34,7 @@
   "homepage": "https://github.com/pinojs/sonic-boom#readme",
   "devDependencies": {
     "@fastify/pre-commit": "^2.1.0",
-    "@sinonjs/fake-timers": "^11.2.2",
+    "@sinonjs/fake-timers": "^13.0.1",
     "@types/node": "^22.0.0",
     "fastbench": "^1.0.1",
     "proxyquire": "^2.1.3",
