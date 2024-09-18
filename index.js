@@ -16,7 +16,7 @@ const MAX_WRITE = 16 * 1024
 const kContentModeBuffer = 'buffer'
 const kContentModeUtf8 = 'utf8'
 
-const [major, minor] = process.versions.node.split('.').map(Number)
+const [major, minor] = (process.versions.node || '0.0').split('.').map(Number)
 const kCopyBuffer = major >= 22 && minor >= 7
 
 function openFile (file, sonic) {
