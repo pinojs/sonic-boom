@@ -5,6 +5,7 @@ const EventEmitter = require('events')
 const inherits = require('util').inherits
 const path = require('path')
 const sleep = require('atomic-sleep')
+const assert = require('assert')
 
 const BUSY_WRITE_TIMEOUT = 100
 const kEmptyBuffer = Buffer.allocUnsafe(0)
@@ -364,10 +365,14 @@ function callFlushCallbackOnDrain (cb) {
   const onDrain = () => {
     // only if _fsync is false to avoid double fsync
     if (!this._fsync) {
-      fs.fsync(this.fd, (err) => {
-        this._flushPending = false
+      try {
+        fs.fsync(this.fd, (err) => {
+          this._flushPending = false
+          cb(err)
+        })
+      } catch (err) {
         cb(err)
-      })
+      }
     } else {
       this._flushPending = false
       cb()
@@ -670,7 +675,11 @@ function actualClose (sonic) {
   sonic._bufs = []
   sonic._lens = []
 
-  fs.fsync(sonic.fd, closeWrapped)
+  assert(typeof sonic.fd === 'number', `sonic.fd must be a number, got ${typeof sonic.fd}`)
+  try {
+    fs.fsync(sonic.fd, closeWrapped)
+  } catch {
+  }
 
   function closeWrapped () {
     // We skip errors in fsync
