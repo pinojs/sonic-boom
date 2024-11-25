@@ -41,7 +41,7 @@
     "standard": "^17.0.0",
     "tap": "^18.2.0",
     "tsd": "^0.31.0",
-    "typescript": "~5.6.3"
+    "typescript": "~5.7.2"
   },
   "dependencies": {
     "atomic-sleep": "^1.0.0"
