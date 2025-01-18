@@ -67,6 +67,7 @@ The options are:
 * `fsync`: perform a [fsyncSync](https://nodejs.org/api/fs.html#fsfsyncsyncfd) every time a write is completed.
 * `append`: appends writes to dest file instead of truncating it (default `true`).
 * `mode`: specify the creating file `mode` (see [fs.open()](https://nodejs.org/api/fs.html#fsopenpath-flags-mode-callback) from Node.js core).
+* `contentMode`: which type of data you can send to the `write` function, supported values are `utf8` or `buffer`. (default `utf8`)
 * `mkdir`: ensure directory for dest file exists when `true` (default `false`).
 * `retryEAGAIN(err, writeBufferLen, remainingBufferLen)`: a function that will be called when sonic-boom
     write/writeSync/flushSync encounters a EAGAIN or EBUSY error. If the return value is
