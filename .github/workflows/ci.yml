@@ -38,11 +38,8 @@ jobs:
       contents: read
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20, 22, 24]
         os: [macos-latest, ubuntu-latest, windows-latest]
-        exclude:
-          - node-version: 14
-            os: windows-latest
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
