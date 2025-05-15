@@ -48,8 +48,8 @@ function runTests (buildTests) {
  */
 function once (emitter, event, fn) {
   return new Promise(resolve => {
-    emitter.on(event, async (...args) => {
-      await fn(...args)
+    emitter.on(event, (...args) => {
+      fn(...args)
       resolve()
     })
   })
