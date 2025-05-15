@@ -49,7 +49,7 @@ test('fsync with async', async (t) => {
   t.assert.ok(stream.write('hello world\n'))
   t.assert.ok(stream.write('something else\n'))
 
-  const endPromise1 = once(stream, 'finish', async () => {
+  const endPromise1 = once(stream, 'finish', () => {
     const data = fs.readFileSync(dest, 'utf8')
     t.assert.strictEqual(data, 'hello world\nsomething else\n')
   })
