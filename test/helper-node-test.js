@@ -1,6 +1,6 @@
 'use strict'
 
-const { test, after } = require('node:test')
+const { describe, test, after } = require('node:test')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -27,15 +27,13 @@ after(() => {
   })
 })
 
-function runTests (buildTests) {
-  test('sync false', (t) => {
-    buildTests(t.test, false)
-    t.end()
+async function runTests (buildTests) {
+  describe('sync false', () => {
+    buildTests(test, false)
   })
 
-  test('sync true', (t) => {
-    buildTests(t.test, true)
-    t.end()
+  describe('sync true', () => {
+    buildTests(test, true)
   })
 }
 
