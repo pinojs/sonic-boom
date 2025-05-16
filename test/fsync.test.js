@@ -49,6 +49,8 @@ test('fsync with async', async (t) => {
   t.assert.ok(stream.write('hello world\n'))
   t.assert.ok(stream.write('something else\n'))
 
+  stream.end()
+
   const endPromise1 = once(stream, 'finish', () => {
     const data = fs.readFileSync(dest, 'utf8')
     t.assert.strictEqual(data, 'hello world\nsomething else\n')
@@ -58,6 +60,5 @@ test('fsync with async', async (t) => {
     t.assert.ok('close emitted')
   })
 
-  stream.end()
   await Promise.all([endPromise1, endPromise2])
 })
