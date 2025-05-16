@@ -3,7 +3,7 @@
 const { test } = require('node:test')
 const fs = require('fs')
 const proxyquire = require('proxyquire')
-const { file, once } = require('./helper-node-test')
+const { file, once } = require('./helper')
 
 test('fsync with sync', (t) => {
   t.plan(5)

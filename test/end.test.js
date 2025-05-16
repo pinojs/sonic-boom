@@ -4,7 +4,7 @@ const { join } = require('path')
 const { fork } = require('child_process')
 const fs = require('fs')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file, runTestsLegacy: runTests } = require('./helper')
 
 runTests(buildTests)
 

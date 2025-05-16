@@ -3,7 +3,7 @@
 const FakeTimers = require('@sinonjs/fake-timers')
 const fs = require('fs')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file, runTestsLegacy: runTests } = require('./helper')
 
 runTests(buildTests)
 
