@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file, runTestsLegacy: runTests } = require('./helper')
 const proxyquire = require('proxyquire')
 
 runTests(buildTests)

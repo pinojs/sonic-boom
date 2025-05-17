@@ -3,7 +3,7 @@
 const { test } = require('tap')
 const fs = require('fs')
 const proxyquire = require('proxyquire')
-const { file, runTests } = require('./helper')
+const { file, runTestsLegacy: runTests } = require('./helper')
 
 const MAX_WRITE = 16 * 1024
 

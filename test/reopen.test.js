@@ -3,7 +3,7 @@
 const fs = require('fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file, runTestsLegacy: runTests } = require('./helper')
 
 runTests(buildTests)
 
