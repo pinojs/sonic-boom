@@ -1,19 +1,19 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const fs = require('fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
-const { file } = require('./helper')
+const { file, once } = require('./helper')
 
-test('write buffers that are not totally written with sync mode', (t) => {
-  t.plan(9)
+test('write buffers that are not totally written with sync mode', async (t) => {
+  t.plan(8)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     fakeFs.writeSync = (fd, buf, enc) => {
-      t.pass('calling real fs.writeSync, ' + buf)
+      t.assert.ok('calling real fs.writeSync, ' + buf)
       return fs.writeSync(fd, buf, enc)
     }
     return 0
@@ -26,32 +26,33 @@ test('write buffers that are not totally written with sync mode', (t) => {
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
-  stream.on('ready', () => {
-    t.pass('ready emitted')
+  const promise1 = once(stream, 'ready', () => {
+    t.assert.ok('ready emitted')
   })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
-    })
+  const promise2 = once(stream, 'finish', () => {
+    const data = fs.readFileSync(dest, 'utf8')
+    t.assert.strictEqual(data, 'hello world\nsomething else\n')
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+
+  const promise3 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+
+  await Promise.all([promise1, promise2, promise3])
 })
 
-test('write buffers that are not totally written with flush sync', (t) => {
-  t.plan(7)
+test('write buffers that are not totally written with flush sync', async (t) => {
+  t.plan(6)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     fakeFs.writeSync = fs.writeSync
     return 0
   }
@@ -63,41 +64,42 @@ test('write buffers that are not totally written with flush sync', (t) => {
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 100, sync: false })
 
-  stream.on('ready', () => {
-    t.pass('ready emitted')
+  const promise1 = once(stream, 'ready', () => {
+    t.assert.ok('ready emitted')
   })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.flushSync()
 
   stream.on('write', (n) => {
     if (n === 0) {
-      t.fail('throwing to avoid infinite loop')
+      t.assert.fail('throwing to avoid infinite loop')
       throw Error('shouldn\'t call write handler after flushing with n === 0')
     }
   })
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
-    })
+  const promise2 = once(stream, 'finish', () => {
+    const data = fs.readFileSync(dest, 'utf8')
+    t.assert.strictEqual(data, 'hello world\nsomething else\n')
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+
+  const promise3 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+
+  await Promise.all([promise1, promise2, promise3])
 })
 
-test('sync writing is fully sync', (t) => {
+test('sync writing is fully sync', async (t) => {
   t.plan(6)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc, cb) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     return fs.writeSync(fd, buf, enc)
   }
   const SonicBoom = proxyquire('../', {
@@ -107,21 +109,23 @@ test('sync writing is fully sync', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   // 'drain' will be only emitted once,
   // the number of assertions at the top check this.
-  stream.on('drain', () => {
-    t.pass('drain emitted')
+  const promise1 = once(stream, 'drain', () => {
+    t.assert.ok('drain emitted')
   })
 
   const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\nsomething else\n')
+  t.assert.strictEqual(data, 'hello world\nsomething else\n')
+
+  await promise1
 })
 
-test('write enormously large buffers sync', (t) => {
-  t.plan(3)
+test('write enormously large buffers sync', async (t) => {
+  t.plan(2)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -137,19 +141,20 @@ test('write enormously large buffers sync', (t) => {
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
-    })
+  const promise1 = once(stream, 'finish', () => {
+    const stat = fs.statSync(dest)
+    t.assert.strictEqual(stat.size, length)
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+
+  const promise2 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+
+  await Promise.all([promise1, promise2])
 })
 
-test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
-  t.plan(4)
+test('write enormously large buffers sync with utf8 multi-byte split', async (t) => {
+  t.plan(3)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -163,19 +168,19 @@ test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
-      const char = Buffer.alloc(4)
-      const fd = fs.openSync(dest, 'r')
-      fs.readSync(fd, char, 0, 4, length - 4)
-      t.equal(char.toString(), '🌲')
-    })
+  const promise1 = once(stream, 'finish', () => {
+    const stat = fs.statSync(dest)
+    t.assert.strictEqual(stat.size, length)
+    const char = Buffer.alloc(4)
+    const fd = fs.openSync(dest, 'r')
+    fs.readSync(fd, char, 0, 4, length - 4)
+    t.assert.strictEqual(char.toString(), '🌲')
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+
+  const promise2 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+  await Promise.all([promise1, promise2])
 })
 
 // for context see this issue https://github.com/pinojs/pino/issues/871
@@ -183,10 +188,10 @@ test('file specified by dest path available immediately when options.sync is tru
   t.plan(3)
   const dest = file()
   const stream = new SonicBoom({ dest, sync: true })
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
   stream.flushSync()
-  t.pass('file opened and written to without error')
+  t.assert.ok('file opened and written to without error')
 })
 
 test('sync error handling', (t) => {
@@ -196,12 +201,12 @@ test('sync error handling', (t) => {
     new SonicBoom({ dest: '/path/to/nowwhere', sync: true })
     t.fail('must throw synchronously')
   } catch (err) {
-    t.pass('an error happened')
+    t.assert.ok('an error happened')
   }
 })
 
 for (const fd of [1, 2]) {
-  test(`fd ${fd}`, (t) => {
+  test(`fd ${fd}`, async (t) => {
     t.plan(1)
 
     const fakeFs = Object.create(fs)
@@ -212,13 +217,13 @@ for (const fd of [1, 2]) {
     const stream = new SonicBoom({ fd })
 
     fakeFs.close = function (fd, cb) {
-      t.fail(`should not close fd ${fd}`)
+      t.assert.fail(`should not close fd ${fd}`)
     }
 
     stream.end()
 
-    stream.on('close', () => {
-      t.pass('close emitted')
+    await once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
   })
 }
@@ -230,17 +235,17 @@ test('._len must always be equal or greater than 0', (t) => {
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, sync: true })
 
-  t.ok(stream.write('hello world 👀\n'))
-  t.ok(stream.write('another line 👀\n'))
+  t.assert.ok(stream.write('hello world 👀\n'))
+  t.assert.ok(stream.write('another line 👀\n'))
 
-  t.equal(stream._len, 0)
+  t.assert.strictEqual(stream._len, 0)
 
   stream.end()
 })
 
 test('._len must always be equal or greater than 0', (t) => {
   const n = 20
-  t.plan(n + 3)
+  t.plan(n + 2)
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
@@ -248,14 +253,12 @@ test('._len must always be equal or greater than 0', (t) => {
 
   let str = ''
   for (let i = 0; i < 20; i++) {
-    t.ok(stream.write('👀'))
+    t.assert.ok(stream.write('👀'))
     str += '👀'
   }
 
-  t.equal(stream._len, 0)
+  t.assert.strictEqual(stream._len, 0)
 
-  fs.readFile(dest, 'utf8', (err, data) => {
-    t.error(err)
-    t.equal(data, str)
-  })
+  const data = fs.readFileSync(dest, 'utf8')
+  t.assert.strictEqual(data, str)
 })
