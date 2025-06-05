@@ -1,10 +1,12 @@
 'use strict'
 
-const { test } = require('tap')
+const { test } = require('node:test')
 const fs = require('fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
-const { file, runTestsLegacy: runTests } = require('./helper')
+const { file, runTests, once } = require('./helper')
+const { setTimeout: setTimeoutP } = require('timers/promises')
+const { on } = require('events')
 
 runTests(buildTests)
 
@@ -12,67 +14,73 @@ function buildTests (test, sync) {
   // Reset the umask for testing
   process.umask(0o000)
 
-  test('write things to a file descriptor', (t) => {
-    t.plan(6)
+  test('write things to a file descriptor', async (t) => {
+    t.plan(5)
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync })
 
-    stream.on('ready', () => {
-      t.pass('ready emitted')
+    const promise1 = once(stream, 'ready', () => {
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.end()
 
-    stream.on('finish', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\nsomething else\n')
-      })
+    const promise2 = once(stream, 'finish', () => {
+      const data = fs.readFileSync(dest, 'utf8')
+      t.assert.strictEqual(data, 'hello world\nsomething else\n')
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+    const promise3 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
+
+    await Promise.all([promise1, promise2, promise3])
   })
 
-  test('write things in a streaming fashion', (t) => {
+  test('write things in a streaming fashion', async (t) => {
     t.plan(8)
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync })
 
-    stream.once('drain', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\n')
-        t.ok(stream.write('something else\n'))
-      })
-
+    const promise1 = new Promise((resolve) => {
       stream.once('drain', () => {
         fs.readFile(dest, 'utf8', (err, data) => {
-          t.error(err)
-          t.equal(data, 'hello world\nsomething else\n')
-          stream.end()
+          t.assert.ifError(err)
+          t.assert.strictEqual(data, 'hello world\n')
+          t.assert.ok(stream.write('something else\n'))
+        })
+
+        stream.once('drain', () => {
+          fs.readFile(dest, 'utf8', (err, data) => {
+            t.assert.ifError(err)
+            t.assert.strictEqual(data, 'hello world\nsomething else\n')
+            stream.end()
+            resolve()
+          })
         })
       })
     })
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
 
-    stream.on('finish', () => {
-      t.pass('finish emitted')
+    const promise2 = once(stream, 'finish', () => {
+      t.assert.ok('finish emitted')
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+
+    const promise3 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
+
+    await Promise.all([promise1, promise2, promise3])
   })
 
-  test('can be piped into', (t) => {
+  test('can be piped into', async (t) => {
     t.plan(4)
 
     const dest = file()
@@ -82,86 +90,98 @@ function buildTests (test, sync) {
 
     source.pipe(stream)
 
-    stream.on('finish', () => {
-      fs.readFile(__filename, 'utf8', (err, expected) => {
-        t.error(err)
-        fs.readFile(dest, 'utf8', (err, data) => {
-          t.error(err)
-          t.equal(data, expected)
+    const promise1 = new Promise((resolve) => {
+      stream.on('finish', () => {
+        fs.readFile(__filename, 'utf8', (err, expected) => {
+          t.assert.ifError(err)
+          fs.readFile(dest, 'utf8', (err, data) => {
+            t.assert.ifError(err)
+            t.assert.strictEqual(data, expected)
+            resolve()
+          })
         })
       })
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+    const promise2 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
+    await Promise.all([promise1, promise2])
   })
 
-  test('write things to a file', (t) => {
+  test('write things to a file', async (t) => {
     t.plan(6)
 
     const dest = file()
     const stream = new SonicBoom({ dest, sync })
 
-    stream.on('ready', () => {
-      t.pass('ready emitted')
+    const promise1 = once(stream, 'ready', () => {
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.end()
 
-    stream.on('finish', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\nsomething else\n')
+    const promise2 = new Promise((resolve) => {
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.assert.ifError(err)
+          t.assert.strictEqual(data, 'hello world\nsomething else\n')
+          resolve()
+        })
       })
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+
+    const promise3 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
+    await Promise.all([promise1, promise2, promise3])
   })
 
-  test('minLength', (t) => {
+  test('minLength', async (t) => {
     t.plan(8)
 
     const dest = file()
     const stream = new SonicBoom({ dest, minLength: 4096, sync })
 
-    stream.on('ready', () => {
-      t.pass('ready emitted')
+    const promise1 = once(stream, 'ready', () => {
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
-    const fail = t.fail
-    stream.on('drain', fail)
+    stream.on('drain', t.assert.fail)
 
     // bad use of timer
     // TODO refactor
-    setTimeout(function () {
+    await setTimeoutP(100)
+    const promise2 = new Promise((resolve) => {
       fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, '')
+        t.assert.ifError(err)
+        t.assert.strictEqual(data, '')
 
         stream.end()
 
         stream.on('finish', () => {
           fs.readFile(dest, 'utf8', (err, data) => {
-            t.error(err)
-            t.equal(data, 'hello world\nsomething else\n')
+            t.assert.ifError(err)
+            t.assert.strictEqual(data, 'hello world\nsomething else\n')
+            resolve()
           })
         })
       })
-    }, 100)
-
-    stream.on('close', () => {
-      t.pass('close emitted')
     })
+
+    const promise3 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
+    })
+    
+    await Promise.all([promise1, promise2, promise3])
   })
 
-  test('write later on recoverable error', (t) => {
+  test('write later on recoverable error', async (t) => {
     t.plan(8)
 
     const fakeFs = Object.create(fs)
@@ -173,57 +193,63 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, minLength: 0, sync })
 
-    stream.on('ready', () => {
-      t.pass('ready emitted')
+    const promise1 = once(stream, 'ready', () => {
+      t.assert.ok('ready emitted')
     })
-    stream.on('error', () => {
-      t.pass('error emitted')
+    
+    const promise2 = once(stream, 'error', () => {
+      t.assert.ok('error emitted')
     })
 
     if (sync) {
       fakeFs.writeSync = function (fd, buf, enc) {
-        t.pass('fake fs.writeSync called')
+        t.assert.ok('fake fs.writeSync called')
         throw new Error('recoverable error')
       }
     } else {
       fakeFs.write = function (fd, buf, ...args) {
-        t.pass('fake fs.write called')
+        t.assert.ok('fake fs.write called')
         setTimeout(() => args.pop()(new Error('recoverable error')), 0)
       }
     }
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
 
-    setTimeout(() => {
-      if (sync) {
-        fakeFs.writeSync = fs.writeSync
-      } else {
-        fakeFs.write = fs.write
-      }
+    await setTimeoutP(0)
 
-      t.ok(stream.write('something else\n'))
+    if (sync) {
+      fakeFs.writeSync = fs.writeSync
+    } else {
+      fakeFs.write = fs.write
+    }
 
-      stream.end()
+    t.assert.ok(stream.write('something else\n'))
+
+    stream.end()
+    const promise3 = new Promise((resolve) => {
       stream.on('finish', () => {
         fs.readFile(dest, 'utf8', (err, data) => {
-          t.error(err)
-          t.equal(data, 'hello world\nsomething else\n')
+          t.assert.ifError(err)
+          t.assert.strictEqual(data, 'hello world\nsomething else\n')
+          resolve()
         })
       })
-      stream.on('close', () => {
-        t.pass('close emitted')
-      })
-    }, 0)
+    })
+
+    const promise4 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
+    })
+    await Promise.all([promise1, promise2, promise3, promise4])
   })
 
-  test('emit write events', (t) => {
+  test('emit write events', async (t) => {
     t.plan(7)
 
     const dest = file()
     const stream = new SonicBoom({ dest, sync })
 
-    stream.on('ready', () => {
-      t.pass('ready emitted')
+    const promise1 = once(stream, 'ready', () => {
+      t.assert.ok('ready emitted')
     })
 
     let length = 0
@@ -231,24 +257,28 @@ function buildTests (test, sync) {
       length += bytes
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.end()
 
-    stream.on('finish', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\nsomething else\n')
-        t.equal(length, 27)
+    const promise2 = new Promise((resolve) => {
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.assert.ifError(err)
+          t.assert.strictEqual(data, 'hello world\nsomething else\n')
+          t.assert.strictEqual(length, 27)
+          resolve()
+        })
       })
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+    const promise3 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
+    await Promise.all([promise1, promise2, promise3])
   })
 
-  test('write multi-byte characters string over than maxWrite', (t) => {
+  test('write multi-byte characters string over than maxWrite', async (t) => {
     const fakeFs = Object.create(fs)
     const MAX_WRITE = 65535
     fakeFs.write = function (fd, buf, ...args) {
@@ -271,30 +301,36 @@ function buildTests (test, sync) {
     stream.write(buf)
     stream.end()
 
-    stream.on('finish', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, buf)
-        t.end()
+    const promise1 = new Promise((resolve) => {
+      stream.on('finish', () => {
+        fs.readFile(dest, 'utf8', (err, data) => {
+          t.assert.ifError(err)
+          t.assert.strictEqual(data, buf)
+          resolve()
+        })
       })
     })
-    stream.on('close', () => {
-      t.pass('close emitted')
+    const promise2 = once(stream, 'close', () => {
+      t.assert.ok('close emitted')
     })
-    stream.on('error', () => {
-      t.pass('error emitted')
+    const promise3 = new Promise((resolve) => {
+      stream.on('error', () => {
+        t.assert.ok('error emitted')
+        resolve()
+      })
     })
+    await Promise.all([promise1, promise2, promise3])
   })
 }
 
-test('write buffers that are not totally written', (t) => {
+test('write buffers that are not totally written', async (t) => {
   t.plan(9)
 
   const fakeFs = Object.create(fs)
   fakeFs.write = function (fd, buf, ...args) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     fakeFs.write = function (fd, buf, ...args) {
-      t.pass('calling real fs.write, ' + buf)
+      t.assert.ok('calling real fs.write, ' + buf)
       fs.write(fd, buf, ...args)
     }
     process.nextTick(args[args.length - 1], null, 0)
@@ -307,27 +343,31 @@ test('write buffers that are not totally written', (t) => {
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: false })
 
-  stream.on('ready', () => {
-    t.pass('ready emitted')
+  const promise1 = once(stream, 'ready', () => {
+    t.assert.ok('ready emitted')
   })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
+  const promise2 = new Promise((resolve) => {
+    stream.on('finish', () => {
+      fs.readFile(dest, 'utf8', (err, data) => {
+        t.assert.ifError(err)
+        t.assert.strictEqual(data, 'hello world\nsomething else\n')
+        resolve()
+      })
     })
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+  const promise3 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+  await Promise.all([promise1, promise2, promise3])
 })
 
-test('write enormously large buffers async', (t) => {
+test('write enormously large buffers async', async (t) => {
   t.plan(3)
 
   const dest = file()
@@ -344,25 +384,28 @@ test('write enormously large buffers async', (t) => {
 
   stream.end()
 
-  stream.on('finish', () => {
-    fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
+  const promise1 = new Promise((resolve) => {
+    stream.on('finish', () => {
+      fs.stat(dest, (err, stat) => {
+        t.assert.ifError(err)
+        t.assert.strictEqual(stat.size, length)
+        resolve()
+      })
     })
   })
-  stream.on('close', () => {
-    t.pass('close emitted')
+  const promise2 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+  await Promise.all([promise1, promise2])
 })
 
 test('make sure `maxWrite` is passed', (t) => {
-  t.plan(1)
   const dest = file()
   const stream = new SonicBoom({ dest, maxLength: 65536 })
-  t.equal(stream.maxLength, 65536)
+  t.assert.strictEqual(stream.maxLength, 65536)
 })
 
-test('write enormously large buffers async atomicly', (t) => {
+test('write enormously large buffers async atomicly', async (t) => {
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
     fs: fakeFs
@@ -394,13 +437,12 @@ test('write enormously large buffers async atomicly', (t) => {
     stream.end()
   })
 
-  stream.on('close', () => {
-    t.pass('close emitted')
-    t.end()
+  await once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
 })
 
-test('write should not drop new data if buffer is not full', (t) => {
+test('write should not drop new data if buffer is not full', async (t) => {
   t.plan(2)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
@@ -414,25 +456,25 @@ test('write should not drop new data if buffer is not full', (t) => {
   const buf = Buffer.alloc(100).fill('x').toString()
 
   fakeFs.write = function (fd, _buf, ...args) {
-    t.equal(_buf.length, buf.length + 2)
+    t.assert.strictEqual(_buf.length, buf.length + 2)
     setImmediate(args[args.length - 1], null, _buf.length)
     fakeFs.write = () => t.error('shouldnt call write again')
     stream.end()
   }
 
-  stream.on('drop', (data) => {
-    t.error('should not drop')
+  once(stream, 'drop', () => {
+    t.assert.fail('should not drop')
   })
 
   stream.write(buf)
   stream.write('aa')
 
-  stream.on('close', () => {
-    t.pass('close emitted')
+  await once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
 })
 
-test('write should drop new data if buffer is full', (t) => {
+test('write should drop new data if buffer is full', async (t) => {
   t.plan(3)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
@@ -446,20 +488,25 @@ test('write should drop new data if buffer is full', (t) => {
   const buf = Buffer.alloc(100).fill('x').toString()
 
   fakeFs.write = function (fd, _buf, ...args) {
-    t.equal(_buf.length, buf.length)
+    t.assert.strictEqual(_buf.length, buf.length)
     setImmediate(args[args.length - 1], null, _buf.length)
     fakeFs.write = () => t.error('shouldnt call write more than once')
   }
 
-  stream.on('drop', (data) => {
-    t.equal(data.length, 3)
-    stream.end()
+  const promise1 = new Promise((resolve) => {
+    stream.on('drop', (data) => {
+      t.assert.strictEqual(data.length, 3)
+      stream.end()
+      resolve()
+    })
   })
 
   stream.write(buf)
   stream.write('aaa')
 
-  stream.on('close', () => {
-    t.pass('close emitted')
+  const promise2 = once(stream, 'close', () => {
+    t.assert.ok('close emitted')
   })
+
+  await Promise.all([promise1, promise2])
 })
