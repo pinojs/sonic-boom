@@ -1,5 +1,6 @@
 'use strict'
 
+const tap = require('tap')
 const nodeTest = require('node:test')
 const fs = require('fs')
 const os = require('os')
@@ -27,6 +28,18 @@ nodeTest.after(() => {
   })
 })
 
+function runTestsLegacy (buildTests) {
+  tap.test('sync false', (t) => {
+    buildTests(t.test, false)
+    t.end()
+  })
+
+  tap.test('sync true', (t) => {
+    buildTests(t.test, true)
+    t.end()
+  })
+}
+
 async function runTests (buildTests) {
   nodeTest.describe('sync false', () => {
     buildTests(nodeTest.test, false)
@@ -53,4 +66,4 @@ function once (emitter, event, fn) {
   })
 }
 
-module.exports = { file, runTests, once }
+module.exports = { file, runTestsLegacy, runTests, once }
