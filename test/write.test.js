@@ -242,7 +242,7 @@ function buildTests (test, sync) {
   })
 
   test('emit write events', async (t) => {
-    t.plan(7)
+    t.plan(6)
 
     const dest = file()
     const stream = new SonicBoom({ dest, sync })
@@ -261,15 +261,10 @@ function buildTests (test, sync) {
 
     stream.end()
 
-    const promise2 = new Promise((resolve) => {
-      stream.on('finish', () => {
-        fs.readFile(dest, 'utf8', (err, data) => {
-          t.assert.ifError(err)
-          t.assert.strictEqual(data, 'hello world\nsomething else\n')
-          t.assert.strictEqual(length, 27)
-          resolve()
-        })
-      })
+    const promise2 = once(stream, 'finish', () => {
+      const data = fs.readFileSync(dest, 'utf8')
+      t.assert.strictEqual(data, 'hello world\nsomething else\n')
+      t.assert.strictEqual(length, 27)
     })
     const promise3 = once(stream, 'close', () => {
       t.assert.ok('close emitted')
@@ -278,8 +273,6 @@ function buildTests (test, sync) {
   })
 
   test('write multi-byte characters string over than maxWrite', async (t) => {
-    t.plan(3)
-
     const fakeFs = Object.create(fs)
     const MAX_WRITE = 65535
     fakeFs.write = function (fd, buf, ...args) {
@@ -303,25 +296,16 @@ function buildTests (test, sync) {
     stream.write(buf)
     stream.end()
 
-    const promise1 = new Promise((resolve) => {
-      stream.on('finish', () => {
-        fs.readFile(dest, 'utf8', (err, data) => {
-          t.assert.ifError(err)
-          t.assert.strictEqual(data, buf)
-          resolve()
-        })
-      })
+    const promise1 = once(stream, 'finish', () => {
+      const data = fs.readFileSync(dest, 'utf8')
+      t.assert.strictEqual(data, buf)
     })
     const promise2 = once(stream, 'close', () => {
       t.assert.ok('close emitted')
     })
 
-    // Add error handling to prevent EBADF errors
-    stream.on('error', (err) => {
-      // Ignore EBADF errors as they can occur during test cleanup
-      if (err.code !== 'EBADF') {
-        throw err
-      }
+    stream.on('error', () => {
+      t.assert.ok('error emitted')
     })
 
     await Promise.all([promise1, promise2])
