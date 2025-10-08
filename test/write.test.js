@@ -177,7 +177,7 @@ function buildTests (test, sync) {
     const promise3 = once(stream, 'close', () => {
       t.assert.ok('close emitted')
     })
-    
+
     await Promise.all([promise1, promise2, promise3])
   })
 
@@ -196,7 +196,7 @@ function buildTests (test, sync) {
     const promise1 = once(stream, 'ready', () => {
       t.assert.ok('ready emitted')
     })
-    
+
     const promise2 = once(stream, 'error', () => {
       t.assert.ok('error emitted')
     })
