@@ -1,7 +1,6 @@
 'use strict'
 
-const tap = require('tap')
-const nodeTest = require('node:test')
+const test = require('node:test')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -15,7 +14,7 @@ function file () {
   return file
 }
 
-nodeTest.after(() => {
+test.after(() => {
   const rmSync = fs.rmSync || fs.rmdirSync
   files.forEach((file) => {
     try {
@@ -28,25 +27,13 @@ nodeTest.after(() => {
   })
 })
 
-function runTestsLegacy (buildTests) {
-  tap.test('sync false', (t) => {
-    buildTests(t.test, false)
-    t.end()
-  })
-
-  tap.test('sync true', (t) => {
-    buildTests(t.test, true)
-    t.end()
-  })
-}
-
 async function runTests (buildTests) {
-  nodeTest.describe('sync false', () => {
-    buildTests(nodeTest.test, false)
+  test.describe('sync false', () => {
+    buildTests(test.test, false)
   })
 
-  nodeTest.describe('sync true', () => {
-    buildTests(nodeTest.test, true)
+  test.describe('sync true', () => {
+    buildTests(test.test, true)
   })
 }
 
@@ -66,4 +53,4 @@ function once (emitter, event, fn) {
   })
 }
 
-module.exports = { file, runTestsLegacy, runTests, once }
+module.exports = { file, runTests, once }
