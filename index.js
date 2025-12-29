@@ -634,7 +634,7 @@ function actualWrite () {
       release(err)
     }
   } else {
-    fs.write(this.fd, this._writingBuf, 'utf8', release)
+    fs.write(this.fd, this._writingBuf, 0, 'utf8', release)
   }
 }
 
