@@ -253,8 +253,8 @@ function buildTests (test, sync) {
     const MAX_WRITE = 65535
     fakeFs.write = function (fd, buf, ...args) {
       // only write byteLength === MAX_WRITE
-      const _buf = Buffer.from(buf).subarray(0, MAX_WRITE).toString()
-      fs.write(fd, _buf, ...args)
+      const _buf = Buffer.from(buf).subarray(0, MAX_WRITE)
+      fs.writeSync(fd, _buf)
       setImmediate(args[args.length - 1], null, MAX_WRITE)
       fakeFs.write = function (fd, buf, ...args) {
         fs.write(fd, buf, ...args)
