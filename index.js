@@ -144,8 +144,18 @@ function SonicBoom (opts) {
     this.flush = flush
     this.flushSync = flushSync
     this._actualWrite = actualWrite
-    fsWriteSync = () => fs.writeSync(this.fd, this._writingBuf, 'utf8')
-    fsWrite = () => fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+    fsWriteSync = () => {
+      if (Buffer.isBuffer(this._writingBuf)) {
+        return fs.writeSync(this.fd, this._writingBuf)
+      }
+      return fs.writeSync(this.fd, this._writingBuf, 'utf8')
+    }
+    fsWrite = () => {
+      if (Buffer.isBuffer(this._writingBuf)) {
+        return fs.write(this.fd, this._writingBuf, this.release)
+      }
+      return fs.write(this.fd, this._writingBuf, 'utf8', this.release)
+    }
   } else {
     throw new Error(`SonicBoom supports "${kContentModeUtf8}" and "${kContentModeBuffer}", but passed ${contentMode}`)
   }
@@ -263,14 +273,12 @@ function SonicBoom (opts) {
  * @returns {{writingBuf: string | Buffer, len: number}} released writingBuf and length
  */
 function releaseWritingBuf (writingBuf, len, n) {
-  // if Buffer.byteLength is equal to n, that means writingBuf contains no multi-byte character
-  if (typeof writingBuf === 'string' && Buffer.byteLength(writingBuf) !== n) {
-    // Since the fs.write callback parameter `n` means how many bytes the passed of string
-    // We calculate the original string length for avoiding the multi-byte character issue
-    n = Buffer.from(writingBuf).subarray(0, n).toString().length
+  if (typeof writingBuf === 'string') {
+    writingBuf = Buffer.from(writingBuf)
   }
+
   len = Math.max(len - n, 0)
-  writingBuf = writingBuf.slice(n)
+  writingBuf = writingBuf.subarray(n)
   return { writingBuf, len }
 }
 
@@ -300,7 +308,9 @@ function write (data) {
     throw new Error('SonicBoom destroyed')
   }
 
-  const len = this._len + data.length
+  data = '' + data
+  const dataLen = Buffer.byteLength(data)
+  const len = this._len + dataLen
   const bufs = this._bufs
 
   if (this.maxLength && len > this.maxLength) {
@@ -310,9 +320,9 @@ function write (data) {
 
   if (
     bufs.length === 0 ||
-    bufs[bufs.length - 1].length + data.length > this.maxWrite
+    Buffer.byteLength(bufs[bufs.length - 1]) + dataLen > this.maxWrite
   ) {
-    bufs.push('' + data)
+    bufs.push(data)
   } else {
     bufs[bufs.length - 1] += data
   }
@@ -547,12 +557,14 @@ function flushSync () {
   }
 
   let buf = ''
-  while (this._bufs.length || buf) {
+  while (this._bufs.length || buf.length) {
     if (buf.length <= 0) {
       buf = this._bufs[0]
     }
     try {
-      const n = fs.writeSync(this.fd, buf, 'utf8')
+      const n = Buffer.isBuffer(buf)
+        ? fs.writeSync(this.fd, buf)
+        : fs.writeSync(this.fd, buf, 'utf8')
       const releasedBufObj = releaseWritingBuf(buf, this._len, n)
       buf = releasedBufObj.writingBuf
       this._len = releasedBufObj.len
@@ -624,11 +636,13 @@ SonicBoom.prototype.destroy = function () {
 function actualWrite () {
   const release = this.release
   this._writing = true
-  this._writingBuf = this._writingBuf || this._bufs.shift() || ''
+  this._writingBuf = this._writingBuf.length ? this._writingBuf : this._bufs.shift() || ''
 
   if (this.sync) {
     try {
-      const written = fs.writeSync(this.fd, this._writingBuf, 'utf8')
+      const written = Buffer.isBuffer(this._writingBuf)
+        ? fs.writeSync(this.fd, this._writingBuf)
+        : fs.writeSync(this.fd, this._writingBuf, 'utf8')
       release(null, written)
     } catch (err) {
       release(err)
