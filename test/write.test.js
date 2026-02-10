@@ -253,8 +253,8 @@ function buildTests (test, sync) {
     const MAX_WRITE = 65535
     fakeFs.write = function (fd, buf, ...args) {
       // only write byteLength === MAX_WRITE
-      const _buf = Buffer.from(buf).subarray(0, MAX_WRITE).toString()
-      fs.write(fd, _buf, ...args)
+      const _buf = Buffer.from(buf).subarray(0, MAX_WRITE)
+      fs.writeSync(fd, _buf)
       setImmediate(args[args.length - 1], null, MAX_WRITE)
       fakeFs.write = function (fd, buf, ...args) {
         fs.write(fd, buf, ...args)
@@ -283,6 +283,56 @@ function buildTests (test, sync) {
     })
     stream.on('error', () => {
       t.pass('error emitted')
+    })
+  })
+
+  test('partial writes must preserve split utf8 characters', (t) => {
+    t.plan(4)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      fs: fakeFs
+    })
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 0, sync })
+
+    const input = 'hello🌍world'
+    let calls = 0
+
+    if (sync) {
+      fakeFs.writeSync = function (fd, buf, enc) {
+        calls++
+        if (calls === 1) {
+          const first = Buffer.from(buf).subarray(0, 7)
+          fs.writeSync(fd, first)
+          return 7
+        }
+        return fs.writeSync(fd, buf)
+      }
+    } else {
+      fakeFs.write = function (fd, buf, ...args) {
+        calls++
+        const cb = args[args.length - 1]
+        if (calls === 1) {
+          const first = Buffer.from(buf).subarray(0, 7)
+          fs.write(fd, first, (err, n) => cb(err, n))
+          return
+        }
+        fs.write(fd, buf, cb)
+      }
+    }
+
+    stream.write(input)
+    stream.end()
+
+    stream.on('close', () => {
+      const data = fs.readFileSync(dest, 'utf8')
+      t.equal(calls, 2)
+      t.equal(data, input)
+      t.equal(data.includes('�'), false)
+      t.equal(data.includes('🌍'), true)
     })
   })
 }
