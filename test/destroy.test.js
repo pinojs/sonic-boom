@@ -1,6 +1,6 @@
 'use strict'
 
-const fs = require('fs')
+const fs = require('node:fs')
 const SonicBoom = require('../')
 const { file, runTests } = require('./helper')
 
@@ -10,32 +10,33 @@ function buildTests (test, sync) {
   // Reset the umask for testing
   process.umask(0o000)
 
-  test('destroy', (t) => {
+  test('destroy', (t, end) => {
     t.plan(5)
 
     const dest = file()
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync })
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
     stream.destroy()
-    t.throws(() => { stream.write('hello world\n') })
+    t.assert.throws(() => { stream.write('hello world\n') })
 
     fs.readFile(dest, 'utf8', function (err, data) {
-      t.error(err)
-      t.equal(data, 'hello world\n')
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\n')
     })
 
     stream.on('finish', () => {
-      t.fail('finish emitted')
+      t.assert.fail('finish emitted')
     })
 
     stream.on('close', () => {
-      t.pass('close emitted')
+      t.assert.ok('close emitted')
+      end()
     })
   })
 
-  test('destroy while opening', (t) => {
+  test('destroy while opening', (t, end) => {
     t.plan(1)
 
     const dest = file()
@@ -43,7 +44,8 @@ function buildTests (test, sync) {
 
     stream.destroy()
     stream.on('close', () => {
-      t.pass('close emitted')
+      t.assert.ok('close emitted')
+      end()
     })
   })
 }

@@ -12,7 +12,7 @@ function buildTests (test, sync) {
   // Reset the unmask for testing
   process.umask(0o000)
 
-  test('append', (t) => {
+  test('append', (t, end) => {
     t.plan(4)
 
     const dest = file()
@@ -20,46 +20,48 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ dest, append: false, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.flush()
 
     stream.on('drain', () => {
       fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'something else\n')
+        t.assert.ifError(err)
+        t.assert.equal(data, 'something else\n')
         stream.end()
+        end()
       })
     })
   })
 
-  test('mkdir', (t) => {
+  test('mkdir', (t, end) => {
     t.plan(4)
 
     const dest = path.join(file(), 'out.log')
     const stream = new SonicBoom({ dest, mkdir: true, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
 
     stream.flush()
 
     stream.on('drain', () => {
       fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\n')
+        t.assert.ifError(err)
+        t.assert.equal(data, 'hello world\n')
         stream.end()
+        end()
       })
     })
   })
 
-  test('flush', (t) => {
+  test('flush', (t, end) => {
     t.plan(5)
 
     const dest = file()
@@ -67,24 +69,25 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.flush()
 
     stream.on('drain', () => {
       fs.readFile(dest, 'utf8', (err, data) => {
-        t.error(err)
-        t.equal(data, 'hello world\nsomething else\n')
+        t.assert.ifError(err)
+        t.assert.equal(data, 'hello world\nsomething else\n')
         stream.end()
+        end()
       })
     })
   })
 
-  test('flush with no data', (t) => {
+  test('flush with no data', (t, end) => {
     t.plan(2)
 
     const dest = file()
@@ -92,17 +95,18 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     stream.flush()
 
     stream.on('drain', () => {
-      t.pass('drain emitted')
+      t.assert.ok('drain emitted')
+      end()
     })
   })
 
-  test('call flush cb after flushed', (t) => {
+  test('call flush cb after flushed', (t, end) => {
     t.plan(4)
 
     const dest = file()
@@ -110,19 +114,20 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
-    t.ok(stream.write('hello world\n'))
-    t.ok(stream.write('something else\n'))
+    t.assert.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('something else\n'))
 
     stream.flush((err) => {
-      if (err) t.fail(err)
-      else t.pass('flush cb called')
+      if (err) t.assert.fail(err)
+      else t.assert.ok('flush cb called')
+      end()
     })
   })
 
-  test('only call fsyncSync and not fsync when fsync: true', (t) => {
+  test('only call fsyncSync and not fsync when fsync: true', (t, end) => {
     t.plan(6)
 
     const fakeFs = Object.create(fs)
@@ -140,20 +145,20 @@ function buildTests (test, sync) {
     })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     fakeFs.fsync = function (fd, cb) {
-      t.fail('fake fs.fsync called while should not')
+      t.assert.fail('fake fs.fsync called while should not')
       cb()
     }
     fakeFs.fsyncSync = function (fd) {
-      t.pass('fake fsyncSync called')
+      t.assert.ok('fake fsyncSync called')
     }
 
     function successOnAsyncOrSyncFn (isSync, originalFn) {
       return function (...args) {
-        t.pass(`fake fs.${originalFn.name} called`)
+        t.assert.ok(`fake fs.${originalFn.name} called`)
         fakeFs[originalFn.name] = originalFn
         return fakeFs[originalFn.name](...args)
       }
@@ -165,19 +170,20 @@ function buildTests (test, sync) {
       fakeFs.write = successOnAsyncOrSyncFn(false, fs.write)
     }
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
     stream.flush((err) => {
-      if (err) t.fail(err)
-      else t.pass('flush cb called')
+      if (err) t.assert.fail(err)
+      else t.assert.ok('flush cb called')
 
       process.nextTick(() => {
         // to make sure fsync is not called as well
-        t.pass('nextTick after flush called')
+        t.assert.ok('nextTick after flush called')
+        end()
       })
     })
   })
 
-  test('call flush cb with error when fsync failed', (t) => {
+  test('call flush cb with error when fsync failed', (t, end) => {
     t.plan(5)
 
     const fakeFs = Object.create(fs)
@@ -194,7 +200,7 @@ function buildTests (test, sync) {
     })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     const err = new Error('other')
@@ -203,7 +209,7 @@ function buildTests (test, sync) {
     function onFsyncOnFsyncSync (isSync, originalFn) {
       return function (...args) {
         Error.captureStackTrace(err)
-        t.pass(`fake fs.${originalFn.name} called`)
+        t.assert.ok(`fake fs.${originalFn.name} called`)
         fakeFs[originalFn.name] = originalFn
         const cb = args[args.length - 1]
 
@@ -216,7 +222,7 @@ function buildTests (test, sync) {
 
     function successOnAsyncOrSyncFn (isSync, originalFn) {
       return function (...args) {
-        t.pass(`fake fs.${originalFn.name} called`)
+        t.assert.ok(`fake fs.${originalFn.name} called`)
         fakeFs[originalFn.name] = originalFn
         return fakeFs[originalFn.name](...args)
       }
@@ -228,14 +234,15 @@ function buildTests (test, sync) {
       fakeFs.write = successOnAsyncOrSyncFn(false, fs.write)
     }
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
     stream.flush((err) => {
-      if (err) t.equal(err.code, 'other')
-      else t.fail('flush cb called without an error')
+      if (err) t.assert.equal(err.code, 'other')
+      else t.assert.fail('flush cb called without an error')
+      end()
     })
   })
 
-  test('call flush cb even when have no data', (t) => {
+  test('call flush cb even when have no data', (t, end) => {
     t.plan(2)
 
     const dest = file()
@@ -243,16 +250,17 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 4096, sync })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
 
       stream.flush((err) => {
-        if (err) t.fail(err)
-        else t.pass('flush cb called')
+        if (err) t.assert.fail(err)
+        else t.assert.ok('flush cb called')
+        end()
       })
     })
   })
 
-  test('call flush cb even when minLength is 0', (t) => {
+  test('call flush cb even when minLength is 0', (t, end) => {
     t.plan(1)
 
     const dest = file()
@@ -260,12 +268,13 @@ function buildTests (test, sync) {
     const stream = new SonicBoom({ fd, minLength: 0, sync })
 
     stream.flush((err) => {
-      if (err) t.fail(err)
-      else t.pass('flush cb called')
+      if (err) t.assert.fail(err)
+      else t.assert.ok('flush cb called')
+      end()
     })
   })
 
-  test('call flush cb with an error when trying to flush destroyed stream', (t) => {
+  test('call flush cb with an error when trying to flush destroyed stream', (t, end) => {
     t.plan(1)
 
     const dest = file()
@@ -274,12 +283,13 @@ function buildTests (test, sync) {
     stream.destroy()
 
     stream.flush((err) => {
-      if (err) t.pass(err)
-      else t.fail('flush cb called without an error')
+      if (err) t.assert.ok(err)
+      else t.assert.fail('flush cb called without an error')
+      end()
     })
   })
 
-  test('call flush cb with an error when failed to flush', (t) => {
+  test('call flush cb with an error when failed to flush', (t, end) => {
     t.plan(5)
 
     const fakeFs = Object.create(fs)
@@ -296,7 +306,7 @@ function buildTests (test, sync) {
     })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     const err = new Error('other')
@@ -305,7 +315,7 @@ function buildTests (test, sync) {
     function onWriteOrWriteSync (isSync, originalFn) {
       return function (...args) {
         Error.captureStackTrace(err)
-        t.pass(`fake fs.${originalFn.name} called`)
+        t.assert.ok(`fake fs.${originalFn.name} called`)
         fakeFs[originalFn.name] = originalFn
 
         if (isSync) throw err
@@ -319,20 +329,21 @@ function buildTests (test, sync) {
     fakeFs.write = onWriteOrWriteSync(false, fs.write)
     fakeFs.writeSync = onWriteOrWriteSync(true, fs.writeSync)
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
     stream.flush((err) => {
-      if (err) t.equal(err.code, 'other')
-      else t.fail('flush cb called without an error')
+      if (err) t.assert.equal(err.code, 'other')
+      else t.assert.fail('flush cb called without an error')
     })
 
     stream.end()
 
     stream.on('close', () => {
-      t.pass('close emitted')
+      t.assert.ok('close emitted')
+      end()
     })
   })
 
-  test('call flush cb when finish writing when currently in the middle', (t) => {
+  test('call flush cb when finish writing when currently in the middle', (t, end) => {
     t.plan(4)
 
     const fakeFs = Object.create(fs)
@@ -351,17 +362,18 @@ function buildTests (test, sync) {
     })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     function onWriteOrWriteSync (originalFn) {
       return function (...args) {
         stream.flush((err) => {
-          if (err) t.fail(err)
-          else t.pass('flush cb called')
+          if (err) t.assert.fail(err)
+          else t.assert.ok('flush cb called')
+          end()
         })
 
-        t.pass(`fake fs.${originalFn.name} called`)
+        t.assert.ok(`fake fs.${originalFn.name} called`)
         fakeFs[originalFn.name] = originalFn
         return originalFn(...args)
       }
@@ -371,10 +383,10 @@ function buildTests (test, sync) {
     fakeFs.write = onWriteOrWriteSync(fs.write)
     fakeFs.writeSync = onWriteOrWriteSync(fs.writeSync)
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
   })
 
-  test('call flush cb when writing and trying to flush before ready (on async)', (t) => {
+  test('call flush cb when writing and trying to flush before ready (on async)', (t, end) => {
     t.plan(4)
 
     const fakeFs = Object.create(fs)
@@ -396,19 +408,20 @@ function buildTests (test, sync) {
     })
 
     stream.on('ready', () => {
-      t.pass('ready emitted')
+      t.assert.ok('ready emitted')
     })
 
     function fsOpen (...args) {
       process.nextTick(() => {
         // try writing and flushing before ready and in the middle of opening
-        t.pass('fake fs.open called')
-        t.ok(stream.write('hello world\n'))
+        t.assert.ok('fake fs.open called')
+        t.assert.ok(stream.write('hello world\n'))
 
         // calling flush
         stream.flush((err) => {
-          if (err) t.fail(err)
-          else t.pass('flush cb called')
+          if (err) t.assert.fail(err)
+          else t.assert.ok('flush cb called')
+          end()
         })
 
         fakeFs.open = fs.open

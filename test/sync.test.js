@@ -1,19 +1,19 @@
 'use strict'
 
-const { test } = require('tap')
-const fs = require('fs')
+const test = require('node:test')
+const fs = require('node:fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
 const { file } = require('./helper')
 
-test('write buffers that are not totally written with sync mode', (t) => {
+test('write buffers that are not totally written with sync mode', (t, end) => {
   t.plan(9)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     fakeFs.writeSync = (fd, buf, enc) => {
-      t.pass('calling real fs.writeSync, ' + buf)
+      t.assert.ok('calling real fs.writeSync, ' + buf)
       return fs.writeSync(fd, buf, enc)
     }
     return 0
@@ -27,31 +27,32 @@ test('write buffers that are not totally written with sync mode', (t) => {
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
 
   stream.on('ready', () => {
-    t.pass('ready emitted')
+    t.assert.ok('ready emitted')
   })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.end()
 
   stream.on('finish', () => {
     fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\nsomething else\n')
+      end()
     })
   })
   stream.on('close', () => {
-    t.pass('close emitted')
+    t.assert.ok('close emitted')
   })
 })
 
-test('write buffers that are not totally written with flush sync', (t) => {
+test('write buffers that are not totally written with flush sync', (t, end) => {
   t.plan(7)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     fakeFs.writeSync = fs.writeSync
     return 0
   }
@@ -64,17 +65,17 @@ test('write buffers that are not totally written with flush sync', (t) => {
   const stream = new SonicBoom({ fd, minLength: 100, sync: false })
 
   stream.on('ready', () => {
-    t.pass('ready emitted')
+    t.assert.ok('ready emitted')
   })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.flushSync()
 
   stream.on('write', (n) => {
     if (n === 0) {
-      t.fail('throwing to avoid infinite loop')
+      t.assert.fail('throwing to avoid infinite loop')
       throw Error('shouldn\'t call write handler after flushing with n === 0')
     }
   })
@@ -83,21 +84,22 @@ test('write buffers that are not totally written with flush sync', (t) => {
 
   stream.on('finish', () => {
     fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\nsomething else\n')
+      end()
     })
   })
   stream.on('close', () => {
-    t.pass('close emitted')
+    t.assert.ok('close emitted')
   })
 })
 
-test('sync writing is fully sync', (t) => {
+test('sync writing is fully sync', (t, end) => {
   t.plan(6)
 
   const fakeFs = Object.create(fs)
   fakeFs.writeSync = function (fd, buf, enc, cb) {
-    t.pass('fake fs.write called')
+    t.assert.ok('fake fs.write called')
     return fs.writeSync(fd, buf, enc)
   }
   const SonicBoom = proxyquire('../', {
@@ -107,20 +109,21 @@ test('sync writing is fully sync', (t) => {
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, minLength: 0, sync: true })
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   // 'drain' will be only emitted once,
   // the number of assertions at the top check this.
   stream.on('drain', () => {
-    t.pass('drain emitted')
+    t.assert.ok('drain emitted')
+    process.nextTick(end)
   })
 
   const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\nsomething else\n')
+  t.assert.equal(data, 'hello world\nsomething else\n')
 })
 
-test('write enormously large buffers sync', (t) => {
+test('write enormously large buffers sync', (t, end) => {
   t.plan(3)
 
   const dest = file()
@@ -139,16 +142,17 @@ test('write enormously large buffers sync', (t) => {
 
   stream.on('finish', () => {
     fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
+      t.assert.ifError(err)
+      t.assert.equal(stat.size, length)
+      end()
     })
   })
   stream.on('close', () => {
-    t.pass('close emitted')
+    t.assert.ok('close emitted')
   })
 })
 
-test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
+test('write enormously large buffers sync with utf8 multi-byte split', (t, end) => {
   t.plan(4)
 
   const dest = file()
@@ -165,16 +169,17 @@ test('write enormously large buffers sync with utf8 multi-byte split', (t) => {
 
   stream.on('finish', () => {
     fs.stat(dest, (err, stat) => {
-      t.error(err)
-      t.equal(stat.size, length)
+      t.assert.ifError(err)
+      t.assert.equal(stat.size, length)
       const char = Buffer.alloc(4)
       const fd = fs.openSync(dest, 'r')
       fs.readSync(fd, char, 0, 4, length - 4)
-      t.equal(char.toString(), '🌲')
+      t.assert.equal(char.toString(), '🌲')
+      end()
     })
   })
   stream.on('close', () => {
-    t.pass('close emitted')
+    t.assert.ok('close emitted')
   })
 })
 
@@ -183,10 +188,10 @@ test('file specified by dest path available immediately when options.sync is tru
   t.plan(3)
   const dest = file()
   const stream = new SonicBoom({ dest, sync: true })
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
   stream.flushSync()
-  t.pass('file opened and written to without error')
+  t.assert.ok('file opened and written to without error')
 })
 
 test('sync error handling', (t) => {
@@ -194,14 +199,14 @@ test('sync error handling', (t) => {
   try {
     /* eslint no-new: off */
     new SonicBoom({ dest: '/path/to/nowwhere', sync: true })
-    t.fail('must throw synchronously')
+    t.assert.fail('must throw synchronously')
   } catch (err) {
-    t.pass('an error happened')
+    t.assert.ok('an error happened')
   }
 })
 
 for (const fd of [1, 2]) {
-  test(`fd ${fd}`, (t) => {
+  test(`fd ${fd}`, (t, end) => {
     t.plan(1)
 
     const fakeFs = Object.create(fs)
@@ -212,13 +217,14 @@ for (const fd of [1, 2]) {
     const stream = new SonicBoom({ fd })
 
     fakeFs.close = function (fd, cb) {
-      t.fail(`should not close fd ${fd}`)
+      t.assert.fail(`should not close fd ${fd}`)
     }
 
     stream.end()
 
     stream.on('close', () => {
-      t.pass('close emitted')
+      t.assert.ok('close emitted')
+      end()
     })
   })
 }
@@ -230,15 +236,15 @@ test('._len must always be equal or greater than 0', (t) => {
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, sync: true })
 
-  t.ok(stream.write('hello world 👀\n'))
-  t.ok(stream.write('another line 👀\n'))
+  t.assert.ok(stream.write('hello world 👀\n'))
+  t.assert.ok(stream.write('another line 👀\n'))
 
-  t.equal(stream._len, 0)
+  t.assert.equal(stream._len, 0)
 
   stream.end()
 })
 
-test('._len must always be equal or greater than 0', (t) => {
+test('._len must always be equal or greater than 0', (t, end) => {
   const n = 20
   t.plan(n + 3)
 
@@ -248,14 +254,15 @@ test('._len must always be equal or greater than 0', (t) => {
 
   let str = ''
   for (let i = 0; i < 20; i++) {
-    t.ok(stream.write('👀'))
+    t.assert.ok(stream.write('👀'))
     str += '👀'
   }
 
-  t.equal(stream._len, 0)
+  t.assert.equal(stream._len, 0)
 
   fs.readFile(dest, 'utf8', (err, data) => {
-    t.error(err)
-    t.equal(data, str)
+    t.assert.ifError(err)
+    t.assert.equal(data, str)
+    end()
   })
 })

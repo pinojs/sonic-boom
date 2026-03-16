@@ -1,9 +1,5 @@
 # sonic-boom
 
-[![NPM Package Version](https://img.shields.io/npm/v/sonic-boom)](https://www.npmjs.com/package/sonic-boom)
-[![Build Status](https://github.com/pinojs/sonic-boom/workflows/CI/badge.svg)](https://github.com/pinojs/sonic-boom/actions?query=workflow%3ACI)
-[![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://standardjs.com/)
-
 Extremely fast utf8-only stream implementation to write to files and
 file descriptors.
 
