@@ -19,7 +19,7 @@ test('write buffers that are not totally written with sync mode', (t, end) => {
     return 0
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -57,7 +57,7 @@ test('write buffers that are not totally written with flush sync', (t, end) => {
     return 0
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -103,7 +103,7 @@ test('sync writing is fully sync', (t, end) => {
     return fs.writeSync(fd, buf, enc)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -211,7 +211,7 @@ for (const fd of [1, 2]) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const stream = new SonicBoom({ fd })

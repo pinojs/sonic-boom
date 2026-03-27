@@ -1,14 +1,13 @@
 'use strict'
 
+const test = require('node:test')
 const { join } = require('node:path')
 const { fork } = require('node:child_process')
 const fs = require('node:fs')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 
-runTests(buildTests)
-
-function buildTests (test, sync) {
+for (const sync in [true, false]) {
   // Reset the umask for testing
   process.umask(0o000)
 

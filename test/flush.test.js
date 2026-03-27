@@ -1,14 +1,13 @@
 'use strict'
 
-const fs = require('fs')
-const path = require('path')
+const test = require('node:test')
+const fs = require('node:fs')
+const path = require('node:path')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 const proxyquire = require('proxyquire')
 
-runTests(buildTests)
-
-function buildTests (test, sync) {
+for (const sync in [true, false]) {
   // Reset the unmask for testing
   process.umask(0o000)
 
@@ -132,7 +131,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -188,7 +187,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -294,7 +293,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -348,7 +347,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -391,7 +390,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     fakeFs.open = fsOpen

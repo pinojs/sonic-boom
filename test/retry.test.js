@@ -3,55 +3,54 @@
 const test = require('node:test')
 const fs = require('node:fs')
 const proxyquire = require('proxyquire')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 
 const MAX_WRITE = 16 * 1024
 
-runTests(buildTests)
+// Reset the umask for testing
+process.umask(0o000)
 
-function buildTests (test, sync) {
-  // Reset the umask for testing
-  process.umask(0o000)
-  test('retry on EAGAIN', (t, end) => {
-    t.plan(7)
+test('retry on EAGAIN', (t, end) => {
+  t.plan(7)
 
-    const fakeFs = Object.create(fs)
-    fakeFs.write = function (fd, buf, ...args) {
-      t.assert.ok('fake fs.write called')
-      fakeFs.write = fs.write
-      const err = new Error('EAGAIN')
-      err.code = 'EAGAIN'
-      process.nextTick(args.pop(), err)
-    }
-    const SonicBoom = proxyquire('../', {
-      fs: fakeFs
-    })
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, buf, ...args) {
+    t.assert.ok('fake fs.write called')
+    fakeFs.write = fs.write
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    process.nextTick(args.pop(), err)
+  }
+  fakeFs.writeSync = fakeFs.write
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
 
-    const dest = file()
-    const fd = fs.openSync(dest, 'w')
-    const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, sync: false, minLength: 0 })
 
-    stream.on('ready', () => {
-      t.assert.ok('ready emitted')
-    })
+  stream.on('ready', () => {
+    t.assert.ok('ready emitted')
+  })
 
-    t.assert.ok(stream.write('hello world\n'))
-    t.assert.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
-    stream.end()
+  stream.end()
 
-    stream.on('finish', () => {
-      fs.readFile(dest, 'utf8', (err, data) => {
-        t.assert.ifError(err)
-        t.assert.equal(data, 'hello world\nsomething else\n')
-        end()
-      })
-    })
-    stream.on('close', () => {
-      t.assert.ok('close emitted')
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\nsomething else\n')
+      end()
     })
   })
-}
+
+  stream.on('close', () => {
+    t.assert.ok('close emitted')
+  })
+})
 
 test('emit error on async EAGAIN', (t, end) => {
   t.plan(11)
@@ -65,7 +64,7 @@ test('emit error on async EAGAIN', (t, end) => {
     process.nextTick(args[args.length - 1], err)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -119,7 +118,7 @@ test('retry on EAGAIN (sync)', (t, end) => {
     throw err
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -159,7 +158,7 @@ test('emit error on EAGAIN (sync)', (t, end) => {
     throw err
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -206,7 +205,7 @@ test('retryEAGAIN receives remaining buffer on async if write fails', (t, end) =
 
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -262,7 +261,7 @@ test('retryEAGAIN receives remaining buffer if exceeds maxWrite', (t, end) => {
 
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -339,7 +338,7 @@ test('retry on EBUSY', (t, end) => {
     process.nextTick(args.pop(), err)
   }
   const SonicBoom = proxyquire('..', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -379,7 +378,7 @@ test('emit error on async EBUSY', (t, end) => {
     process.nextTick(args.pop(), err)
   }
   const SonicBoom = proxyquire('..', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()

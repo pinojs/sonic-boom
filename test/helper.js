@@ -27,16 +27,4 @@ test.after(() => {
   })
 })
 
-function runTests (buildTests) {
-  test('sync false', (t, end) => {
-    buildTests(t.test.bind(t), false)
-    end()
-  })
-
-  test('sync true', (t, end) => {
-    buildTests(t.test.bind(t), true)
-    end()
-  })
-}
-
-module.exports = { file, runTests }
+module.exports = { file }

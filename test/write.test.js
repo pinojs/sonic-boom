@@ -4,11 +4,9 @@ const test = require('node:test')
 const fs = require('node:fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 
-runTests(buildTests)
-
-function buildTests (test, sync) {
+for (const sync in [true, false]) {
   // Reset the umask for testing
   process.umask(0o000)
 
@@ -171,7 +169,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -268,7 +266,7 @@ function buildTests (test, sync) {
       }
     }
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
     const dest = file()
     const fd = fs.openSync(dest, 'w')
@@ -298,7 +296,7 @@ function buildTests (test, sync) {
 
     const fakeFs = Object.create(fs)
     const SonicBoom = proxyquire('../', {
-      fs: fakeFs
+      'node:fs': fakeFs
     })
 
     const dest = file()
@@ -358,7 +356,7 @@ test('write buffers that are not totally written', (t, end) => {
     process.nextTick(args[args.length - 1], null, 0)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -425,7 +423,7 @@ test('make sure `maxWrite` is passed', (t) => {
 test('write enormously large buffers async atomicly', (t, end) => {
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -464,7 +462,7 @@ test('write should not drop new data if buffer is not full', (t, end) => {
   t.plan(2)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -497,7 +495,7 @@ test('write should drop new data if buffer is full', (t, end) => {
   t.plan(3)
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()

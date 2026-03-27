@@ -4,11 +4,9 @@ const test = require('node:test')
 const fs = require('node:fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 
-runTests(buildTests)
-
-function buildTests (test, sync) {
+for (const sync in [true, false]) {
   // Reset the umask for testing
   process.umask(0o000)
 
@@ -43,7 +41,7 @@ test('retry in flushSync on EAGAIN', (t, end) => {
 
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -86,7 +84,7 @@ test('throw error in flushSync on EAGAIN', (t, end) => {
 
   const fakeFs = Object.create(fs)
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()

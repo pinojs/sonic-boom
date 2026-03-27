@@ -14,7 +14,7 @@ test('fsync with sync', (t, end) => {
     return fs.fsyncSync(fd)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
@@ -41,7 +41,7 @@ test('fsync with async', (t, end) => {
     return fs.fsyncSync(fd)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
