@@ -22,17 +22,17 @@ for (const sync in [true, false]) {
 
     stream.on('close', () => {
       t.assert.ok('close emitted')
-      end()
+
+      fs.readFile(dest, 'utf8', function (err, data) {
+        t.assert.ifError(err)
+        t.assert.equal(data, 'hello world\n')
+        end()
+      })
     })
 
     t.assert.ok(stream.write('hello world\n'))
     stream.destroy()
     t.assert.throws(() => { stream.write('hello world\n') })
-
-    fs.readFile(dest, 'utf8', function (err, data) {
-      t.assert.ifError(err)
-      t.assert.equal(data, 'hello world\n')
-    })
   })
 
   test('destroy while opening', (t, end) => {
