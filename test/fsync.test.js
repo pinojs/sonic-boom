@@ -1,63 +1,66 @@
 'use strict'
 
-const { test } = require('tap')
+const test = require('node:test')
 const fs = require('fs')
 const proxyquire = require('proxyquire')
 const { file } = require('./helper')
 
-test('fsync with sync', (t) => {
+test('fsync with sync', (t, end) => {
   t.plan(5)
 
   const fakeFs = Object.create(fs)
   fakeFs.fsyncSync = function (fd) {
-    t.pass('fake fs.fsyncSync called')
+    t.assert.ok('fake fs.fsyncSync called')
     return fs.fsyncSync(fd)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, sync: true, fsync: true })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.end()
 
   const data = fs.readFileSync(dest, 'utf8')
-  t.equal(data, 'hello world\nsomething else\n')
+  t.assert.equal(data, 'hello world\nsomething else\n')
+
+  end()
 })
 
-test('fsync with async', (t) => {
+test('fsync with async', (t, end) => {
   t.plan(7)
 
   const fakeFs = Object.create(fs)
   fakeFs.fsyncSync = function (fd) {
-    t.pass('fake fs.fsyncSync called')
+    t.assert.ok('fake fs.fsyncSync called')
     return fs.fsyncSync(fd)
   }
   const SonicBoom = proxyquire('../', {
-    fs: fakeFs
+    'node:fs': fakeFs
   })
 
   const dest = file()
   const fd = fs.openSync(dest, 'w')
   const stream = new SonicBoom({ fd, fsync: true })
 
-  t.ok(stream.write('hello world\n'))
-  t.ok(stream.write('something else\n'))
+  t.assert.ok(stream.write('hello world\n'))
+  t.assert.ok(stream.write('something else\n'))
 
   stream.end()
 
   stream.on('finish', () => {
     fs.readFile(dest, 'utf8', (err, data) => {
-      t.error(err)
-      t.equal(data, 'hello world\nsomething else\n')
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\nsomething else\n')
+      end()
     })
   })
   stream.on('close', () => {
-    t.pass('close emitted')
+    t.assert.ok('close emitted')
   })
 })

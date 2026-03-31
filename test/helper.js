@@ -1,9 +1,9 @@
 'use strict'
 
-const { test, teardown } = require('tap')
-const fs = require('fs')
-const os = require('os')
-const path = require('path')
+const test = require('node:test')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
 
 const files = []
 let count = 0
@@ -14,7 +14,7 @@ function file () {
   return file
 }
 
-teardown(() => {
+test.after(() => {
   const rmSync = fs.rmSync || fs.rmdirSync
   files.forEach((file) => {
     try {
@@ -27,16 +27,4 @@ teardown(() => {
   })
 })
 
-function runTests (buildTests) {
-  test('sync false', (t) => {
-    buildTests(t.test, false)
-    t.end()
-  })
-
-  test('sync true', (t) => {
-    buildTests(t.test, true)
-    t.end()
-  })
-}
-
-module.exports = { file, runTests }
+module.exports = { file }

@@ -1,11 +1,11 @@
 'use strict'
 
-const fs = require('fs')
-const EventEmitter = require('events')
-const inherits = require('util').inherits
-const path = require('path')
+const fs = require('node:fs')
+const EventEmitter = require('node:events')
+const inherits = require('node:util').inherits
+const path = require('node:path')
+const assert = require('node:assert')
 const sleep = require('atomic-sleep')
-const assert = require('assert')
 
 const BUSY_WRITE_TIMEOUT = 100
 const kEmptyBuffer = Buffer.allocUnsafe(0)

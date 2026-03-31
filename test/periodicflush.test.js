@@ -1,17 +1,16 @@
 'use strict'
 
+const test = require('node:test')
+const fs = require('node:fs')
 const FakeTimers = require('@sinonjs/fake-timers')
-const fs = require('fs')
 const SonicBoom = require('../')
-const { file, runTests } = require('./helper')
+const { file } = require('./helper')
 
-runTests(buildTests)
-
-function buildTests (test, sync) {
+for (const sync in [true, false]) {
   // Reset the umask for testing
   process.umask(0o000)
 
-  test('periodicflush_off', (t) => {
+  test('periodicflush_off', (t, end) => {
     t.plan(4)
 
     const clock = FakeTimers.install()
@@ -19,15 +18,16 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync, minLength: 5000 })
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
 
     setTimeout(function () {
       fs.readFile(dest, 'utf8', function (err, data) {
-        t.error(err)
-        t.equal(data, '')
+        t.assert.ifError(err)
+        t.assert.equal(data, '')
 
         stream.destroy()
-        t.pass('file empty')
+        t.assert.ok('file empty')
+        end()
       })
     }, 2000)
 
@@ -35,7 +35,7 @@ function buildTests (test, sync) {
     clock.uninstall()
   })
 
-  test('periodicflush_on', (t) => {
+  test('periodicflush_on', (t, end) => {
     t.plan(4)
 
     const clock = FakeTimers.install()
@@ -43,15 +43,16 @@ function buildTests (test, sync) {
     const fd = fs.openSync(dest, 'w')
     const stream = new SonicBoom({ fd, sync, minLength: 5000, periodicFlush: 1000 })
 
-    t.ok(stream.write('hello world\n'))
+    t.assert.ok(stream.write('hello world\n'))
 
     setTimeout(function () {
       fs.readFile(dest, 'utf8', function (err, data) {
-        t.error(err)
-        t.equal(data, 'hello world\n')
+        t.assert.ifError(err)
+        t.assert.equal(data, 'hello world\n')
 
         stream.destroy()
-        t.pass('file not empty')
+        t.assert.ok('file not empty')
+        end()
       })
     }, 2000)
 
