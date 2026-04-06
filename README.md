@@ -75,7 +75,6 @@ The options are:
 For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available.
 For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to.
 
-
 ### SonicBoom#write(string)
 
 Writes the string to the file.
@@ -95,7 +94,7 @@ Reopen the file in place, useful for log rotation.
 Example:
 
 ```js
-const stream = new SonicBoom('./my.log')
+const stream = new SonicBoom({ dest: './my.log' })
 process.on('SIGUSR2', function () {
   stream.reopen()
 })
@@ -115,7 +114,6 @@ Closes the stream immediately, the data is not flushed.
 
 ### Events
 
-
 #### SonicBoom#close
 
 See [Stream#close](https://nodejs.org/api/stream.html#event-close). The `'close'` event when the instance has been closed.
@@ -126,7 +124,7 @@ See [Stream#drain](https://nodejs.org/api/stream.html#event-drain). The `'drain'
 
 #### SonicBoom#drop <any>
 
-When destination file maximal length is reached, the `'drop'` event is emitted with data that could not be written. 
+When destination file maximal length is reached, the `'drop'` event is emitted with data that could not be written.
 
 #### SonicBoom#error <Error>
 

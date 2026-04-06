@@ -24,9 +24,7 @@ export type SonicBoomOpts = {
 
 export class SonicBoom extends EventEmitter {
     /**
-     * @param [fileDescriptor] File path or numerical file descriptor
-     * relative protocol is enabled. Default: process.stdout
-     * @returns a new sonic-boom instance
+     * Creates a new instance of SonicBoom.
      */
     constructor(opts: SonicBoomOpts)
 
