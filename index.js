@@ -722,11 +722,11 @@ function actualClose (sonic) {
  * These export configurations enable JS and TS developers
  * to consumer SonicBoom in whatever way best suits their needs.
  * Some examples of supported import syntax includes:
- * - `const SonicBoom = require('SonicBoom')`
- * - `const { SonicBoom } = require('SonicBoom')`
- * - `import * as SonicBoom from 'SonicBoom'`
- * - `import { SonicBoom } from 'SonicBoom'`
- * - `import SonicBoom from 'SonicBoom'`
+ * - `const SonicBoom = require('sonic-boom')`
+ * - `const { SonicBoom } = require('sonic-boom')`
+ * - `import * as SonicBoom from 'sonic-boom'`
+ * - `import { SonicBoom } from 'sonic-boom'`
+ * - `import SonicBoom from 'sonic-boom'`
  */
 SonicBoom.SonicBoom = SonicBoom
 SonicBoom.default = SonicBoom
