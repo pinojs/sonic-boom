@@ -33,7 +33,7 @@
   "homepage": "https://github.com/pinojs/sonic-boom#readme",
   "devDependencies": {
     "@sinonjs/fake-timers": "^15.0.0",
-    "@types/node": "^25.0.3",
+    "@types/node": "^26.0.1",
     "borp": "^1.0.0",
     "eslint": "^9.39.4",
     "fastbench": "^1.0.1",
