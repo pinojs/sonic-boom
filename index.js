@@ -99,7 +99,7 @@ function SonicBoom (opts) {
     return new SonicBoom(opts)
   }
 
-  let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir, retryEAGAIN, fsync, contentMode, mode } = opts || {}
+  let { fd, dest, minLength, maxLength, maxWrite, periodicFlush, sync, append = true, mkdir, retryEAGAIN, maxWriteRetries, fsync, contentMode, mode } = opts || {}
 
   fd = fd || dest
 
@@ -126,6 +126,14 @@ function SonicBoom (opts) {
   this.append = append || false
   this.mode = mode
   this.retryEAGAIN = retryEAGAIN || (() => true)
+  // Bounds how many *consecutive* EAGAIN/EBUSY retries (across write,
+  // writeSync and flushSync) are attempted before giving up and surfacing
+  // the error, instead of retrying forever while _bufs keeps growing from
+  // unrelated concurrent write() calls. 0 (default) preserves the existing
+  // unbounded-retry behavior for backward compatibility.
+  // See: https://github.com/pinojs/sonic-boom/issues/65
+  this.maxWriteRetries = maxWriteRetries || 0
+  this._writeRetries = 0
   this.mkdir = mkdir || false
 
   let fsWriteSync
@@ -174,7 +182,13 @@ function SonicBoom (opts) {
 
   this.release = (err, n) => {
     if (err) {
-      if ((err.code === 'EAGAIN' || err.code === 'EBUSY') && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
+      const isRetryableErr = (err.code === 'EAGAIN' || err.code === 'EBUSY')
+      if (isRetryableErr) {
+        this._writeRetries++
+      }
+      const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
+
+      if (isRetryableErr && !retriesExhausted && this.retryEAGAIN(err, this._writingBuf.length, this._len - this._writingBuf.length)) {
         if (this.sync) {
           // This error code should not happen in sync mode, because it is
           // not using the underlining operating system asynchronous functions.
@@ -198,6 +212,15 @@ function SonicBoom (opts) {
       return
     }
 
+    // In sync mode, `release(undefined, 0)` is also used internally as a
+    // "resume after EAGAIN backoff" continuation (see the retry branch
+    // above) rather than always signaling a genuine successful write -
+    // only reset the retry counter once real forward progress (n > 0) is
+    // confirmed, otherwise a stuck destination would never accumulate past
+    // 1 retry and maxWriteRetries could never trigger.
+    if (n > 0) {
+      this._writeRetries = 0
+    }
     this.emit('write', n)
     const releasedBufObj = releaseWritingBuf(this._writingBuf, this._len, n)
     this._len = releasedBufObj.len
@@ -565,6 +588,7 @@ function flushSync () {
       const n = Buffer.isBuffer(buf)
         ? fs.writeSync(this.fd, buf)
         : fs.writeSync(this.fd, buf, 'utf8')
+      this._writeRetries = 0
       const releasedBufObj = releaseWritingBuf(buf, this._len, n)
       buf = releasedBufObj.writingBuf
       this._len = releasedBufObj.len
@@ -573,7 +597,11 @@ function flushSync () {
       }
     } catch (err) {
       const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
-      if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+      if (shouldRetry) {
+        this._writeRetries++
+      }
+      const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
+      if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
       }
 
@@ -609,6 +637,7 @@ function flushBufferSync () {
     }
     try {
       const n = fs.writeSync(this.fd, buf)
+      this._writeRetries = 0
       buf = buf.subarray(n)
       this._len = Math.max(this._len - n, 0)
       if (buf.length <= 0) {
@@ -617,7 +646,11 @@ function flushBufferSync () {
       }
     } catch (err) {
       const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
-      if (shouldRetry && !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+      if (shouldRetry) {
+        this._writeRetries++
+      }
+      const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
+      if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
         throw err
       }
 
