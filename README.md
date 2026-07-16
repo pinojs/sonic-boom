@@ -71,6 +71,15 @@ The options are:
     error. `err` is the error that caused this function to be called,
     `writeBufferLen` is the length of the buffer sonic-boom tried to write, and
     `remainingBufferLen` is the length of the remaining buffer sonic-boom didn't try to write.
+* `maxWriteRetries`: the maximum number of *consecutive* EAGAIN/EBUSY retries
+    (across `write`, `writeSync` and `flushSync`) sonic-boom will attempt
+    before giving up and emitting/throwing the error, instead of retrying
+    forever. The counter resets on every successful write. Default: `0`
+    (no limit - preserves the previous unbounded-retry behavior). Set this if
+    the destination can become permanently unwritable (e.g. a reader that
+    stops draining a pipe), to avoid unbounded growth of the internal write
+    buffer while retries are silently attempted forever - see
+    [#65](https://github.com/pinojs/sonic-boom/issues/65).
 
 For `sync:false`  a `SonicBoom` instance will emit the `'ready'` event when a file descriptor is available.
 For `sync:true` this is not relevant because the `'ready'` event will be fired when the `SonicBoom` instance is created, before it can be subscribed to.

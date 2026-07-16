@@ -419,3 +419,138 @@ test('emit error on async EBUSY', (t, end) => {
     t.assert.ok('close emitted')
   })
 })
+
+test('maxWriteRetries bounds async EAGAIN retries and emits error instead of retrying forever', (t, end) => {
+  t.plan(5)
+
+  const fakeFs = Object.create(fs)
+  let attempts = 0
+  fakeFs.write = function (fd, buf, ...args) {
+    attempts++
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    process.nextTick(args[args.length - 1], err)
+  }
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({
+    fd,
+    sync: false,
+    minLength: 0,
+    maxWriteRetries: 3,
+    // retryEAGAIN always says "keep going" -- maxWriteRetries must still
+    // cap the actual number of attempts, proving it is an independent bound.
+    retryEAGAIN: () => true
+  })
+
+  stream.on('ready', () => {
+    t.assert.ok('ready emitted')
+  })
+
+  stream.once('error', err => {
+    t.assert.equal(err.code, 'EAGAIN')
+    // 1 initial attempt + 3 retries = 4 total fs.write calls, then give up.
+    t.assert.equal(attempts, 4)
+    t.assert.equal(stream._writing, false)
+    end()
+  })
+
+  t.assert.ok(stream.write('hello world\n'))
+})
+
+test('maxWriteRetries bounds flushSync EAGAIN retries and throws instead of looping forever', (t, end) => {
+  t.plan(2)
+
+  const fakeFs = Object.create(fs)
+  fakeFs.writeSync = function (fd, buf, enc) {
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    throw err
+  }
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({
+    fd,
+    sync: true,
+    minLength: 0,
+    maxWriteRetries: 3,
+    retryEAGAIN: () => true
+  })
+
+  stream.on('ready', () => {
+    let threw = false
+    try {
+      stream.write('hello world\n')
+    } catch (err) {
+      threw = true
+      t.assert.equal(err.code, 'EAGAIN')
+    }
+    t.assert.ok(threw, 'flushSync threw once retries were exhausted')
+    end()
+  })
+})
+
+test('maxWriteRetries counter resets after a successful write', (t, end) => {
+  t.plan(3)
+
+  // Two separate bursts of 2 EAGAINs each (calls 1-2, then calls 4-5),
+  // separated by one successful write (call 3). Each burst is individually
+  // below maxWriteRetries (3), so this must only succeed if the counter is
+  // reset to 0 by the successful write in between -- if it were cumulative
+  // (2 + 2 = 4 > 3) the stream would incorrectly give up.
+  const fakeFs = Object.create(fs)
+  let call = 0
+  fakeFs.write = function (fd, buf, ...args) {
+    call++
+    if (call % 3 === 0) {
+      return fs.write(fd, buf, ...args)
+    }
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    process.nextTick(args[args.length - 1], err)
+  }
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({
+    fd,
+    sync: false,
+    minLength: 0,
+    maxWriteRetries: 3,
+    retryEAGAIN: () => true
+  })
+
+  stream.on('error', () => {
+    t.assert.fail('should not give up: each EAGAIN burst is below maxWriteRetries')
+  })
+
+  stream.on('ready', () => {
+    // First burst (calls 1-2 fail, call 3 succeeds) is triggered by this write.
+    t.assert.ok(stream.write('hello world\n'))
+    // Once the first write finishes, queue a second write whose first two
+    // attempts (calls 4-5) also fail with EAGAIN before eventually succeeding.
+    stream.once('drain', () => {
+      stream.write('sonic boom\n')
+      stream.end()
+    })
+  })
+
+  stream.on('finish', () => {
+    fs.readFile(dest, 'utf8', (err, data) => {
+      t.assert.ifError(err)
+      t.assert.equal(data, 'hello world\nsonic boom\n')
+      end()
+    })
+  })
+})
