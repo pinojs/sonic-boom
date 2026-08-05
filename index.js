@@ -24,11 +24,25 @@ function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
   sonic._asyncDrainScheduled = false
+  // Needed before open completes so sync flush can open the file itself.
+  sonic.file = file
+
+  // Track whether sonic.fd already belonged to an earlier open/reopen.
+  const hadFdBeforeOpen = sonic.fd >= 0
 
   // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
   // for sync mode, there is no way to add a listener that will receive these
 
   function fileOpened (err, fd) {
+    // A sync-flush fallback won the race; close this redundant fd.
+    if (!hadFdBeforeOpen && sonic.fd >= 0) {
+      sonic._reopening = false
+      sonic._writing = false
+      sonic._opening = false
+      if (!err) fs.close(fd, () => {})
+      return
+    }
+
     if (err) {
       sonic._reopening = false
       sonic._writing = false
@@ -49,7 +63,6 @@ function openFile (file, sonic) {
     const reopening = sonic._reopening
 
     sonic.fd = fd
-    sonic.file = file
     sonic._reopening = false
     sonic._opening = false
     sonic._writing = false
@@ -542,13 +555,36 @@ SonicBoom.prototype.end = function () {
   }
 }
 
+// If sync flush runs before async open completes, open append destinations
+// synchronously. Truncate mode still throws to avoid a second open losing data.
+function openFileSyncFallback (sonic) {
+  if (!sonic.append || !sonic.file) {
+    return false
+  }
+  try {
+    if (sonic.mkdir) fs.mkdirSync(path.dirname(sonic.file), { recursive: true })
+    sonic.fd = fs.openSync(sonic.file, 'a', sonic.mode)
+  } catch {
+    return false
+  }
+  // Let the caller emit 'ready' after the pending data has been flushed.
+  sonic._opening = false
+  sonic._writing = false
+  sonic._reopening = false
+  return true
+}
+
 function flushSync () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
 
+  let openedByFallback = false
   if (this.fd < 0) {
-    throw new Error('sonic boom is not ready yet')
+    if (!openFileSyncFallback(this)) {
+      throw new Error('sonic boom is not ready yet')
+    }
+    openedByFallback = true
   }
 
   if (!this._writing && this._writingBuf.length > 0) {
@@ -586,6 +622,11 @@ function flushSync () {
   } catch {
     // Skip the error. The fd might not support fsync.
   }
+
+  // Emit only after writing so listeners cannot clear the buffer first.
+  if (openedByFallback) {
+    this.emit('ready')
+  }
 }
 
 function flushBufferSync () {
@@ -593,8 +634,12 @@ function flushBufferSync () {
     throw new Error('SonicBoom destroyed')
   }
 
+  let openedByFallback = false
   if (this.fd < 0) {
-    throw new Error('sonic boom is not ready yet')
+    if (!openFileSyncFallback(this)) {
+      throw new Error('sonic boom is not ready yet')
+    }
+    openedByFallback = true
   }
 
   if (!this._writing && this._writingBuf.length > 0) {
@@ -623,6 +668,10 @@ function flushBufferSync () {
 
       sleep(BUSY_WRITE_TIMEOUT)
     }
+  }
+
+  if (openedByFallback) {
+    this.emit('ready')
   }
 }
 
