@@ -36,14 +36,21 @@ function buildTests (test, sync) {
   })
 
   test('destroy while opening', (t) => {
-    t.plan(1)
+    t.plan(3)
 
     const dest = file()
     const stream = new SonicBoom({ dest })
+    const events = []
 
-    stream.destroy()
-    stream.on('close', () => {
-      t.pass('close emitted')
+    stream.on('ready', () => {
+      events.push('ready')
+      t.equal(stream.destroyed, false)
+      t.pass('ready emitted')
     })
+    stream.on('close', () => {
+      events.push('close')
+      t.same(events, ['ready', 'close'])
+    })
+    stream.destroy()
   })
 }

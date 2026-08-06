@@ -24,25 +24,11 @@ function openFile (file, sonic) {
   sonic._opening = true
   sonic._writing = true
   sonic._asyncDrainScheduled = false
-  // Needed before open completes so sync flush can open the file itself.
-  sonic.file = file
-
-  // Track whether sonic.fd already belonged to an earlier open/reopen.
-  const hadFdBeforeOpen = sonic.fd >= 0
 
   // NOTE: 'error' and 'ready' events emitted below only relevant when sonic.sync===false
   // for sync mode, there is no way to add a listener that will receive these
 
   function fileOpened (err, fd) {
-    // A sync-flush fallback won the race; close this redundant fd.
-    if (!hadFdBeforeOpen && sonic.fd >= 0) {
-      sonic._reopening = false
-      sonic._writing = false
-      sonic._opening = false
-      if (!err) fs.close(fd, () => {})
-      return
-    }
-
     if (err) {
       sonic._reopening = false
       sonic._writing = false
@@ -88,22 +74,25 @@ function openFile (file, sonic) {
   const flags = sonic.append ? 'a' : 'w'
   const mode = sonic.mode
 
-  if (sonic.sync) {
-    try {
-      if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
-      const fd = fs.openSync(file, flags, mode)
+  try {
+    if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
+    const fd = fs.openSync(file, flags, mode)
+    sonic.file = file
+
+    if (sonic.sync) {
       fileOpened(null, fd)
-    } catch (err) {
+    } else {
+      // Make the descriptor available immediately, while preserving the
+      // existing asynchronous ready event and write startup.
+      sonic.fd = fd
+      process.nextTick(fileOpened, null, fd)
+    }
+  } catch (err) {
+    if (sonic.sync) {
       fileOpened(err)
       throw err
     }
-  } else if (sonic.mkdir) {
-    fs.mkdir(path.dirname(file), { recursive: true }, (err) => {
-      if (err) return fileOpened(err)
-      fs.open(file, flags, mode, fileOpened)
-    })
-  } else {
-    fs.open(file, flags, mode, fileOpened)
+    process.nextTick(fileOpened, err)
   }
 }
 
@@ -555,36 +544,13 @@ SonicBoom.prototype.end = function () {
   }
 }
 
-// If sync flush runs before async open completes, open append destinations
-// synchronously. Truncate mode still throws to avoid a second open losing data.
-function openFileSyncFallback (sonic) {
-  if (!sonic.append || !sonic.file) {
-    return false
-  }
-  try {
-    if (sonic.mkdir) fs.mkdirSync(path.dirname(sonic.file), { recursive: true })
-    sonic.fd = fs.openSync(sonic.file, 'a', sonic.mode)
-  } catch {
-    return false
-  }
-  // Let the caller emit 'ready' after the pending data has been flushed.
-  sonic._opening = false
-  sonic._writing = false
-  sonic._reopening = false
-  return true
-}
-
 function flushSync () {
   if (this.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
 
-  let openedByFallback = false
   if (this.fd < 0) {
-    if (!openFileSyncFallback(this)) {
-      throw new Error('sonic boom is not ready yet')
-    }
-    openedByFallback = true
+    throw new Error('sonic boom is not ready yet')
   }
 
   if (!this._writing && this._writingBuf.length > 0) {
@@ -622,11 +588,6 @@ function flushSync () {
   } catch {
     // Skip the error. The fd might not support fsync.
   }
-
-  // Emit only after writing so listeners cannot clear the buffer first.
-  if (openedByFallback) {
-    this.emit('ready')
-  }
 }
 
 function flushBufferSync () {
@@ -634,12 +595,8 @@ function flushBufferSync () {
     throw new Error('SonicBoom destroyed')
   }
 
-  let openedByFallback = false
   if (this.fd < 0) {
-    if (!openFileSyncFallback(this)) {
-      throw new Error('sonic boom is not ready yet')
-    }
-    openedByFallback = true
+    throw new Error('sonic boom is not ready yet')
   }
 
   if (!this._writing && this._writingBuf.length > 0) {
@@ -668,10 +625,6 @@ function flushBufferSync () {
 
       sleep(BUSY_WRITE_TIMEOUT)
     }
-  }
-
-  if (openedByFallback) {
-    this.emit('ready')
   }
 }
 
@@ -725,7 +678,7 @@ function actualWriteBuffer () {
 }
 
 function actualClose (sonic) {
-  if (sonic.fd === -1) {
+  if (sonic._opening) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
   }
