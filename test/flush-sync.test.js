@@ -37,6 +37,67 @@ function buildTests (test, sync) {
   })
 }
 
+test('flushSync works immediately after opening a file destination', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest })
+
+  t.ok(stream.write('hello world\n'))
+  t.doesNotThrow(() => stream.flushSync())
+
+  const data = fs.readFileSync(dest, 'utf8')
+  t.equal(data, 'hello world\n')
+
+  stream.destroy()
+})
+
+test('flushSync works immediately with append disabled', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest, append: false })
+
+  t.ok(stream.write('hello world\n'))
+  t.doesNotThrow(() => stream.flushSync())
+
+  const data = fs.readFileSync(dest, 'utf8')
+  t.equal(data, 'hello world\n')
+
+  stream.destroy()
+})
+
+test('flushBufferSync works immediately after opening a file destination', (t) => {
+  t.plan(3)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest, contentMode: 'buffer' })
+
+  t.ok(stream.write(Buffer.from('hello world\n')))
+  t.doesNotThrow(() => stream.flushSync())
+
+  const data = fs.readFileSync(dest, 'utf8')
+  t.equal(data, 'hello world\n')
+
+  stream.destroy()
+})
+
+test('ready remains asynchronous after opening the file synchronously', (t) => {
+  t.plan(2)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest })
+  let ready = false
+
+  stream.on('ready', () => {
+    ready = true
+    t.pass('ready emitted')
+    stream.destroy()
+  })
+
+  t.equal(ready, false)
+})
+
 test('retry in flushSync on EAGAIN', (t) => {
   t.plan(7)
 

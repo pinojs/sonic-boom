@@ -162,16 +162,9 @@ function buildTests (test, sync) {
       t.pass('drain emitted')
 
       fs.renameSync(dest, after)
-      if (sync) {
-        fakeFs.openSync = function (file, flags) {
-          t.pass('fake fs.openSync called')
-          throw new Error('open error')
-        }
-      } else {
-        fakeFs.open = function (file, flags, mode, cb) {
-          t.pass('fake fs.open called')
-          setTimeout(() => cb(new Error('open error')), 0)
-        }
+      fakeFs.openSync = function (file, flags) {
+        t.pass('fake fs.openSync called')
+        throw new Error('open error')
       }
 
       if (sync) {

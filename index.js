@@ -49,7 +49,6 @@ function openFile (file, sonic) {
     const reopening = sonic._reopening
 
     sonic.fd = fd
-    sonic.file = file
     sonic._reopening = false
     sonic._opening = false
     sonic._writing = false
@@ -75,22 +74,25 @@ function openFile (file, sonic) {
   const flags = sonic.append ? 'a' : 'w'
   const mode = sonic.mode
 
-  if (sonic.sync) {
-    try {
-      if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
-      const fd = fs.openSync(file, flags, mode)
+  try {
+    if (sonic.mkdir) fs.mkdirSync(path.dirname(file), { recursive: true })
+    const fd = fs.openSync(file, flags, mode)
+    sonic.file = file
+
+    if (sonic.sync) {
       fileOpened(null, fd)
-    } catch (err) {
+    } else {
+      // Make the descriptor available immediately, while preserving the
+      // existing asynchronous ready event and write startup.
+      sonic.fd = fd
+      process.nextTick(fileOpened, null, fd)
+    }
+  } catch (err) {
+    if (sonic.sync) {
       fileOpened(err)
       throw err
     }
-  } else if (sonic.mkdir) {
-    fs.mkdir(path.dirname(file), { recursive: true }, (err) => {
-      if (err) return fileOpened(err)
-      fs.open(file, flags, mode, fileOpened)
-    })
-  } else {
-    fs.open(file, flags, mode, fileOpened)
+    process.nextTick(fileOpened, err)
   }
 }
 
@@ -676,7 +678,7 @@ function actualWriteBuffer () {
 }
 
 function actualClose (sonic) {
-  if (sonic.fd === -1) {
+  if (sonic._opening) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
   }
