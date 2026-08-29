@@ -67,7 +67,9 @@ function openFile (file, sonic) {
     // start
     if ((!sonic._writing && sonic._len > sonic.minLength) || sonic._flushPending) {
       sonic._actualWrite()
-    } else if (reopening) {
+    } else if (reopening && !sonic._writing) {
+      // Do not emit 'drain' if a 'ready' listener started a write:
+      // release() will emit the real 'drain' when that write completes.
       process.nextTick(() => sonic.emit('drain'))
     }
   }

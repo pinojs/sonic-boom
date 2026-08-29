@@ -242,3 +242,48 @@ for (const sync in [true, false]) {
     })
   })
 }
+
+// A write started by a 'ready' listener after reopen() must complete before
+// 'drain' is emitted. Deferring the reopened file's write by one setImmediate
+// makes the write land after the nextTick on which reopen() used to emit a
+// premature 'drain'. Async mode only: sync mode writes before 'ready'.
+test('reopen does not emit drain while a write is in flight', (t, end) => {
+  t.plan(5)
+
+  const dest = file()
+  const after = dest + '-new'
+
+  const fakeFs = Object.create(fs)
+  fakeFs.write = function (fd, ...args) {
+    if (stream.file === after) {
+      setImmediate(() => fs.write(fd, ...args))
+      return
+    }
+    return fs.write(fd, ...args)
+  }
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  const stream = new SonicBoom({ dest, minLength: 0, sync: false })
+
+  t.assert.ok(stream.write('hello world\n'))
+
+  stream.once('drain', () => {
+    stream.reopen(after)
+
+    stream.once('ready', () => {
+      t.assert.ok(stream.write('after reopen\n'))
+
+      stream.once('drain', () => {
+        t.assert.equal(stream._writing, false)
+        fs.readFile(after, 'utf8', (err, data) => {
+          t.assert.ifError(err)
+          t.assert.equal(data, 'after reopen\n')
+          stream.end()
+          end()
+        })
+      })
+    })
+  })
+})
