@@ -94,11 +94,12 @@ It will return false to signal the producer to slow down.
 Writes the current buffer to the file. If a write is already in progress,
 the buffered data is written after it completes.
 
-The callback is called once all pending writes have completed (and the file
-has been fsynced, unless the `fsync` option is set or the destination is
-stdout/stderr). If the flush fails, or the stream is destroyed before the
-data is flushed, the callback is called with an error. `end()` waits for
-pending flushes before closing the stream.
+The callback is called once all pending writes have completed and the file
+has been fsynced (unless the `fsync` option is set). fsync errors meaning the
+file descriptor cannot be synchronized, such as a pipe or TTY, are ignored.
+If the flush fails, or the stream is destroyed before the data is flushed,
+the callback is called with an error. `end()` waits for pending flushes
+before closing the stream.
 
 ### SonicBoom#reopen([file])
 
@@ -116,6 +117,10 @@ process.on('SIGUSR2', function () {
 ### SonicBoom#flushSync()
 
 Flushes the buffered data synchronously. This is a costly operation.
+
+If an asynchronous write is in flight when `flushSync()` is called, only the
+data queued after it is written, and it may reach the file before the data
+of the in-flight write.
 
 ### SonicBoom#end()
 

@@ -18,6 +18,37 @@ const kContentModeBuffer = 'buffer'
 const kContentModeUtf8 = 'utf8'
 const kFlush = Symbol('kFlush')
 
+// States returned by beginFlushSync().
+// No write is in flight.
+const kFlushSyncIdle = 0
+// An EAGAIN/EBUSY retry timer was pending and has been cancelled. Nothing is
+// in flight, so the remainder of _writingBuf can be written synchronously.
+const kFlushSyncRetry = 1
+// Called from a 'write' listener. The completed write has been released and
+// nothing is in flight, so the remainder of _writingBuf can be written
+// synchronously.
+const kFlushSyncInWriteEvent = 2
+// An asynchronous fs.write() of _writingBuf is in flight. Only the queued
+// buffers can be written; ordering relative to the in-flight chunk is not
+// guaranteed.
+const kFlushSyncInFlight = 3
+
+// fsync() error codes meaning the file descriptor cannot be synchronized
+// (e.g. it is a pipe, socket, or TTY) or has already been closed. These are
+// not treated as flush failures.
+function isIgnorableFsyncError (err) {
+  switch (err?.code) {
+    case 'EBADF':
+    case 'EINVAL':
+    case 'ENOTSUP':
+    case 'EOPNOTSUPP':
+    case 'EROFS':
+      return true
+    default:
+      return false
+  }
+}
+
 const [major, minor] = (process.versions.node || '0.0').split('.').map(Number)
 const kCopyBuffer = major >= 22 && minor >= 7
 
@@ -117,6 +148,8 @@ function SonicBoom (opts) {
   this._flushPending = 0
   this._flushInProgress = 0
   this._emittingFlush = false
+  this._emittingWrite = false
+  this._retryTimer = null
   this._hwm = Math.max(minLength || 0, 16387)
   this.file = null
   this.destroyed = false
@@ -207,7 +240,10 @@ function SonicBoom (opts) {
           }
         } else {
           // Let's give the destination some time to process the chunk.
-          setTimeout(fsWrite, BUSY_WRITE_TIMEOUT)
+          this._retryTimer = setTimeout(() => {
+            this._retryTimer = null
+            fsWrite()
+          }, BUSY_WRITE_TIMEOUT)
         }
       } else {
         this._writing = false
@@ -226,10 +262,19 @@ function SonicBoom (opts) {
     if (n > 0) {
       this._writeRetries = 0
     }
-    this.emit('write', n)
     const releasedBufObj = releaseWritingBuf(this._writingBuf, this._len, n)
     this._len = releasedBufObj.len
     this._writingBuf = releasedBufObj.writingBuf
+
+    // Emit 'write' after the written bytes have been released so that a
+    // listener calling flushSync() sees a consistent state with no I/O in
+    // flight. flushSync() may consume the remainder of _writingBuf.
+    this._emittingWrite = true
+    try {
+      this.emit('write', n)
+    } finally {
+      this._emittingWrite = false
+    }
 
     if (this.destroyed) {
       this._writing = false
@@ -471,11 +516,13 @@ function callFlushCallbackOnDrain (cb) {
     this._flushInProgress++
     flushing = true
     // only if _fsync is false to avoid double fsync
-    if (!this._fsync && !this.destroyed && this.fd !== 1 && this.fd !== 2) {
+    if (!this._fsync && !this.destroyed) {
       try {
         fs.fsync(this.fd, (err) => {
-          // If the fd is closed, we ignore the error.
-          if (err?.code === 'EBADF') {
+          // Ignore errors meaning the fd is closed or cannot be synced
+          // (e.g. stdout/stderr attached to a pipe or TTY). A regular
+          // file, including a redirected stdout/stderr, is still synced.
+          if (isIgnorableFsyncError(err)) {
             complete()
             return
           }
@@ -641,48 +688,104 @@ SonicBoom.prototype.end = function () {
   }
 }
 
-function flushSync () {
-  if (this.destroyed) {
+/**
+ * Validates that flushSync() can run and determines how it must interact
+ * with any write already in progress.
+ * @returns {number} One of the kFlushSync* states.
+ */
+function beginFlushSync (sonic) {
+  if (sonic.destroyed) {
     throw new Error('SonicBoom destroyed')
   }
 
-  if (this.fd < 0) {
+  if (sonic.fd < 0) {
     throw new Error('sonic boom is not ready yet')
   }
 
-  if (!this._writing && this._writingBuf.length > 0) {
-    this._bufs.unshift(this._writingBuf)
-    this._writingBuf = ''
+  // While reopening, _writing is set but no write is in flight and fd still
+  // refers to the previous file, which is only closed once the new file is
+  // ready. Flush the buffered data to it.
+  if (!sonic._writing || sonic._opening) {
+    return kFlushSyncIdle
   }
 
-  let buf = ''
-  while (this._bufs.length || buf.length) {
-    if (buf.length <= 0) {
-      buf = this._bufs[0]
-    }
-    try {
-      const n = Buffer.isBuffer(buf)
-        ? fs.writeSync(this.fd, buf)
-        : fs.writeSync(this.fd, buf, 'utf8')
-      this._writeRetries = 0
-      const releasedBufObj = releaseWritingBuf(buf, this._len, n)
-      buf = releasedBufObj.writingBuf
-      this._len = releasedBufObj.len
-      if (buf.length <= 0) {
-        this._bufs.shift()
-      }
-    } catch (err) {
-      const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
-      if (shouldRetry) {
-        this._writeRetries++
-      }
-      const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
-      if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
-        throw err
-      }
+  if (sonic._retryTimer !== null) {
+    clearTimeout(sonic._retryTimer)
+    sonic._retryTimer = null
+    return kFlushSyncRetry
+  }
 
-      sleep(BUSY_WRITE_TIMEOUT)
+  if (sonic._emittingWrite) {
+    return kFlushSyncInWriteEvent
+  }
+
+  return kFlushSyncInFlight
+}
+
+/**
+ * Called after flushSync() has taken over a write whose retry timer it
+ * cancelled. Resumes whatever release() would have done once that write
+ * completed.
+ */
+function endFlushSyncRetry (sonic) {
+  sonic._writing = false
+  process.nextTick(() => {
+    if (sonic.destroyed || sonic._writing) return
+    if (sonic._reopening) {
+      sonic._reopening = false
+      sonic.reopen()
+    } else if (sonic._ending) {
+      finishEnding(sonic)
+    } else if (sonic._len > 0 && (sonic._len > sonic.minLength || sonic._flushPending)) {
+      sonic._actualWrite()
+    } else {
+      emitDrain(sonic)
     }
+  })
+}
+
+function flushSync () {
+  const state = beginFlushSync(this)
+
+  try {
+    // Unless an fs.write() of _writingBuf is in flight, its unwritten
+    // remainder must be written first to preserve ordering.
+    if (state !== kFlushSyncInFlight && this._writingBuf.length > 0) {
+      this._bufs.unshift(this._writingBuf)
+      this._writingBuf = ''
+    }
+
+    let buf = ''
+    while (this._bufs.length || buf.length) {
+      if (buf.length <= 0) {
+        buf = this._bufs[0]
+      }
+      try {
+        const n = Buffer.isBuffer(buf)
+          ? fs.writeSync(this.fd, buf)
+          : fs.writeSync(this.fd, buf, 'utf8')
+        this._writeRetries = 0
+        const releasedBufObj = releaseWritingBuf(buf, this._len, n)
+        buf = releasedBufObj.writingBuf
+        this._len = releasedBufObj.len
+        if (buf.length <= 0) {
+          this._bufs.shift()
+        }
+      } catch (err) {
+        const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
+        if (shouldRetry) {
+          this._writeRetries++
+        }
+        const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
+        if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+          throw err
+        }
+
+        sleep(BUSY_WRITE_TIMEOUT)
+      }
+    }
+  } finally {
+    if (state === kFlushSyncRetry) endFlushSyncRetry(this)
   }
 
   try {
@@ -693,45 +796,46 @@ function flushSync () {
 }
 
 function flushBufferSync () {
-  if (this.destroyed) {
-    throw new Error('SonicBoom destroyed')
-  }
+  const state = beginFlushSync(this)
 
-  if (this.fd < 0) {
-    throw new Error('sonic boom is not ready yet')
-  }
-
-  if (!this._writing && this._writingBuf.length > 0) {
-    this._bufs.unshift([this._writingBuf])
-    this._writingBuf = kEmptyBuffer
-  }
-
-  let buf = kEmptyBuffer
-  while (this._bufs.length || buf.length) {
-    if (buf.length <= 0) {
-      buf = mergeBuf(this._bufs[0], this._lens[0])
+  try {
+    // Unless an fs.write() of _writingBuf is in flight, its unwritten
+    // remainder must be written first to preserve ordering.
+    if (state !== kFlushSyncInFlight && this._writingBuf.length > 0) {
+      this._bufs.unshift([this._writingBuf])
+      this._lens.unshift(this._writingBuf.length)
+      this._writingBuf = kEmptyBuffer
     }
-    try {
-      const n = fs.writeSync(this.fd, buf)
-      this._writeRetries = 0
-      buf = buf.subarray(n)
-      this._len = Math.max(this._len - n, 0)
+
+    let buf = kEmptyBuffer
+    while (this._bufs.length || buf.length) {
       if (buf.length <= 0) {
-        this._bufs.shift()
-        this._lens.shift()
+        buf = mergeBuf(this._bufs[0], this._lens[0])
       }
-    } catch (err) {
-      const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
-      if (shouldRetry) {
-        this._writeRetries++
-      }
-      const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
-      if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
-        throw err
-      }
+      try {
+        const n = fs.writeSync(this.fd, buf)
+        this._writeRetries = 0
+        buf = buf.subarray(n)
+        this._len = Math.max(this._len - n, 0)
+        if (buf.length <= 0) {
+          this._bufs.shift()
+          this._lens.shift()
+        }
+      } catch (err) {
+        const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
+        if (shouldRetry) {
+          this._writeRetries++
+        }
+        const retriesExhausted = this.maxWriteRetries > 0 && this._writeRetries > this.maxWriteRetries
+        if (!shouldRetry || retriesExhausted || !this.retryEAGAIN(err, buf.length, this._len - buf.length)) {
+          throw err
+        }
 
-      sleep(BUSY_WRITE_TIMEOUT)
+        sleep(BUSY_WRITE_TIMEOUT)
+      }
     }
+  } finally {
+    if (state === kFlushSyncRetry) endFlushSyncRetry(this)
   }
 }
 

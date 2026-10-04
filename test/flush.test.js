@@ -6,6 +6,7 @@ const path = require('node:path')
 const SonicBoom = require('../')
 const { file } = require('./helper')
 const proxyquire = require('proxyquire')
+const { spawnSync } = require('node:child_process')
 
 for (const sync in [true, false]) {
   // Reset the unmask for testing
@@ -524,28 +525,35 @@ for (const sync of [false, true]) {
     stream.end()
   })
 
-  test(`flush does not fsync stdout (sync: ${sync})`, (t, end) => {
-    t.plan(2)
+  // Errors from fsync meaning the fd cannot be synchronized (e.g. a pipe or
+  // TTY) or is already closed do not fail the flush.
+  for (const code of ['EBADF', 'EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'EROFS']) {
+    test(`flush ignores ${code} from fsync (sync: ${sync})`, (t, end) => {
+      t.plan(2)
 
-    const fakeFs = Object.create(fs)
-    const SonicBoom = proxyquire('../', {
-      'node:fs': fakeFs
+      const fakeFs = Object.create(fs)
+      const SonicBoom = proxyquire('../', {
+        'node:fs': fakeFs
+      })
+
+      fakeFs.fsync = function (fd, cb) {
+        const err = new Error(code)
+        err.code = code
+        process.nextTick(cb, err)
+      }
+
+      const dest = file()
+      const fd = fs.openSync(dest, 'w')
+      const stream = new SonicBoom({ fd, minLength: 4096, sync })
+
+      t.assert.ok(stream.write('hello world\n'))
+      stream.flush((err) => {
+        t.assert.ifError(err)
+        stream.end()
+        end()
+      })
     })
-
-    let fsyncCalls = 0
-    fakeFs.fsync = function (fd, cb) {
-      fsyncCalls++
-      process.nextTick(cb)
-    }
-
-    const stream = new SonicBoom({ fd: 1, minLength: 4096, sync })
-
-    stream.flush((err) => {
-      t.assert.ifError(err)
-      t.assert.equal(fsyncCalls, 0)
-      end()
-    })
-  })
+  }
 }
 
 test('destroy while opening with a pending end does not throw', (t, end) => {
@@ -584,4 +592,30 @@ test('destroy while opening fails a pending flush', (t, end) => {
     end()
   })
   stream.destroy()
+})
+
+test('flush fsyncs stdout redirected to a regular file', (t) => {
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const script = `
+    const fs = require('node:fs')
+    const fakeFs = Object.create(fs)
+    let fsyncCalls = 0
+    fakeFs.fsync = (fd, cb) => { fsyncCalls++; fs.fsync(fd, cb) }
+    const SonicBoom = require('proxyquire')(${JSON.stringify(path.join(__dirname, '..'))}, { 'node:fs': fakeFs })
+    const stream = new SonicBoom({ fd: 1, minLength: 4096 })
+    stream.write('hello world\\n')
+    stream.flush((err) => {
+      if (err) throw err
+      process.stderr.write(String(fsyncCalls))
+    })
+  `
+  const child = spawnSync(process.execPath, ['-e', script], {
+    cwd: path.join(__dirname, '..'),
+    stdio: ['ignore', fd, 'pipe']
+  })
+  fs.closeSync(fd)
+  t.assert.equal(child.status, 0, child.stderr.toString())
+  t.assert.equal(child.stderr.toString(), '1')
+  t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\n')
 })
