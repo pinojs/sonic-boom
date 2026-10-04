@@ -429,3 +429,159 @@ for (const sync in [true, false]) {
     }
   })
 }
+
+for (const sync of [false, true]) {
+  for (const contentMode of ['utf8', 'buffer']) {
+    const toData = (str) => contentMode === 'buffer' ? Buffer.from(str) : str
+
+    test(`flush with minLength 0 waits for the in-flight write (sync: ${sync}, ${contentMode})`, (t, end) => {
+      t.plan(4)
+
+      const dest = file()
+      const fd = fs.openSync(dest, 'w')
+      const stream = new SonicBoom({ fd, minLength: 0, sync, contentMode })
+
+      let flushed = false
+      t.assert.ok(stream.write(toData('hello world\n')))
+      stream.flush((err) => {
+        t.assert.ifError(err)
+        flushed = true
+        t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\n')
+        stream.end()
+        end()
+      })
+      // in sync mode the write already completed, so the cb may run synchronously
+      t.assert.equal(flushed, sync)
+    })
+
+    test(`end waits for a pending flush (sync: ${sync}, ${contentMode})`, (t, end) => {
+      t.plan(4)
+
+      const dest = file()
+      const fd = fs.openSync(dest, 'w')
+      const stream = new SonicBoom({ fd, minLength: 4096, sync, contentMode })
+
+      let flushed = false
+      t.assert.ok(stream.write(toData('hello world\n')))
+      stream.flush((err) => {
+        t.assert.ifError(err)
+        flushed = true
+      })
+      stream.on('close', () => {
+        t.assert.ok(flushed, 'flush cb called before close')
+        t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\n')
+        end()
+      })
+      stream.end()
+    })
+  }
+
+  test(`concurrent flush calls are all called before close (sync: ${sync})`, (t, end) => {
+    t.plan(4)
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 4096, sync })
+
+    let count = 0
+    t.assert.ok(stream.write('hello world\n'))
+    stream.flush((err) => { t.assert.ifError(err); count++ })
+    stream.flush((err) => { t.assert.ifError(err); count++ })
+    stream.on('close', () => {
+      t.assert.equal(count, 2)
+      end()
+    })
+    stream.end()
+  })
+
+  test(`end closes the stream after a failed fsync in flush (sync: ${sync})`, (t, end) => {
+    t.plan(2)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      'node:fs': fakeFs
+    })
+
+    const flushError = new Error('flush failed')
+    let fsyncCalls = 0
+    fakeFs.fsync = function (fd, cb) {
+      fsyncCalls++
+      process.nextTick(cb, fsyncCalls === 1 ? flushError : null)
+    }
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 4096, sync })
+
+    stream.write('hello world\n')
+    stream.flush((err) => {
+      t.assert.equal(err, flushError)
+    })
+    stream.on('close', () => {
+      t.assert.ok('close emitted')
+      end()
+    })
+    stream.end()
+  })
+
+  test(`flush does not fsync stdout (sync: ${sync})`, (t, end) => {
+    t.plan(2)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      'node:fs': fakeFs
+    })
+
+    let fsyncCalls = 0
+    fakeFs.fsync = function (fd, cb) {
+      fsyncCalls++
+      process.nextTick(cb)
+    }
+
+    const stream = new SonicBoom({ fd: 1, minLength: 4096, sync })
+
+    stream.flush((err) => {
+      t.assert.ifError(err)
+      t.assert.equal(fsyncCalls, 0)
+      end()
+    })
+  })
+}
+
+test('destroy while opening with a pending end does not throw', (t, end) => {
+  t.plan(1)
+
+  const stream = new SonicBoom({ dest: file(), sync: false })
+  stream.end()
+  stream.destroy()
+  stream.on('close', () => {
+    t.assert.ok('close emitted')
+    end()
+  })
+})
+
+test('end while opening after destroy does not throw', (t, end) => {
+  t.plan(1)
+
+  const stream = new SonicBoom({ dest: file(), sync: false })
+  stream.destroy()
+  stream.end()
+  stream.on('close', () => {
+    t.assert.ok('close emitted')
+    end()
+  })
+})
+
+test('destroy while opening fails a pending flush', (t, end) => {
+  t.plan(2)
+
+  const stream = new SonicBoom({ dest: file(), sync: false })
+  stream.flush((err) => {
+    t.assert.equal(err.message, 'SonicBoom destroyed')
+  })
+  stream.on('close', () => {
+    t.assert.ok('close emitted')
+    end()
+  })
+  stream.destroy()
+})

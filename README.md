@@ -91,10 +91,14 @@ It will return false to signal the producer to slow down.
 
 ### SonicBoom#flush([cb])
 
-Writes the current buffer to the file if a write was not in progress.
-Do nothing if `minLength` is zero or if it is already writing.
+Writes the current buffer to the file. If a write is already in progress,
+the buffered data is written after it completes.
 
-call the callback when the flush operation is completed. when failed the callback is called with an error.
+The callback is called once all pending writes have completed (and the file
+has been fsynced, unless the `fsync` option is set or the destination is
+stdout/stderr). If the flush fails, or the stream is destroyed before the
+data is flushed, the callback is called with an error. `end()` waits for
+pending flushes before closing the stream.
 
 ### SonicBoom#reopen([file])
 

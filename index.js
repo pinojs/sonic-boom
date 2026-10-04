@@ -16,6 +16,7 @@ const MAX_WRITE = 16 * 1024
 
 const kContentModeBuffer = 'buffer'
 const kContentModeUtf8 = 'utf8'
+const kFlush = Symbol('kFlush')
 
 const [major, minor] = (process.versions.node || '0.0').split('.').map(Number)
 const kCopyBuffer = major >= 22 && minor >= 7
@@ -65,12 +66,12 @@ function openFile (file, sonic) {
     }
 
     // start
-    if ((!sonic._writing && sonic._len > sonic.minLength) || sonic._flushPending) {
+    if (!sonic._writing && (sonic._len > sonic.minLength || sonic._flushPending)) {
       sonic._actualWrite()
     } else if (reopening && !sonic._writing) {
       // Do not emit 'drain' if a 'ready' listener started a write:
       // release() will emit the real 'drain' when that write completes.
-      process.nextTick(() => sonic.emit('drain'))
+      process.nextTick(emitDrain, sonic)
     }
   }
 
@@ -113,7 +114,9 @@ function SonicBoom (opts) {
   this._ending = false
   this._reopening = false
   this._asyncDrainScheduled = false
-  this._flushPending = false
+  this._flushPending = 0
+  this._flushInProgress = 0
+  this._emittingFlush = false
   this._hwm = Math.max(minLength || 0, 16387)
   this.file = null
   this.destroyed = false
@@ -228,6 +231,11 @@ function SonicBoom (opts) {
     this._len = releasedBufObj.len
     this._writingBuf = releasedBufObj.writingBuf
 
+    if (this.destroyed) {
+      this._writing = false
+      return
+    }
+
     if (this._writingBuf.length) {
       if (!this.sync) {
         fsWrite()
@@ -256,36 +264,33 @@ function SonicBoom (opts) {
       this._writing = false
       this._reopening = false
       this.reopen()
-    } else if (len > this.minLength) {
+    } else if (len > 0 && (len > this.minLength || this._flushPending)) {
       this._actualWrite()
     } else if (this._ending) {
       if (len > 0) {
         this._actualWrite()
       } else {
         this._writing = false
-        actualClose(this)
+        finishEnding(this)
       }
     } else {
       this._writing = false
-      if (this.sync) {
-        if (!this._asyncDrainScheduled) {
-          this._asyncDrainScheduled = true
-          process.nextTick(emitDrain, this)
-        }
-      } else {
-        this.emit('drain')
-      }
+      scheduleDrain(this)
     }
   }
 
   this.on('newListener', function (name) {
-    if (name === 'drain') {
+    if (name === 'drain' || name === kFlush) {
       this._asyncDrainScheduled = false
     }
   })
 
   if (this._periodicFlush !== 0) {
-    this._periodicFlushTimer = setInterval(() => this.flush(null), this._periodicFlush)
+    this._periodicFlushTimer = setInterval(() => {
+      if (this._flushPending === 0 && this._flushInProgress === 0) {
+        this.flush(null)
+      }
+    }, this._periodicFlush)
     this._periodicFlushTimer.unref()
   }
 }
@@ -307,11 +312,50 @@ function releaseWritingBuf (writingBuf, len, n) {
   return { writingBuf, len }
 }
 
+function scheduleDrain (sonic) {
+  if (sonic.sync) {
+    if (!sonic._asyncDrainScheduled) {
+      sonic._asyncDrainScheduled = true
+      process.nextTick(emitDrain, sonic)
+    }
+  } else {
+    emitDrain(sonic)
+  }
+}
+
 function emitDrain (sonic) {
-  const hasListeners = sonic.listenerCount('drain') > 0
+  const hasListeners = sonic.listenerCount('drain') > 0 || sonic.listenerCount(kFlush) > 0
   if (!hasListeners) return
   sonic._asyncDrainScheduled = false
-  sonic.emit('drain')
+  if (sonic._writing) return
+  emitFlush(sonic)
+  if (sonic._writing || sonic.destroyed) return
+  if (sonic.listenerCount('drain') > 0) {
+    sonic.emit('drain')
+  }
+}
+
+function emitFlush (sonic) {
+  if (sonic._emittingFlush) return
+  sonic._emittingFlush = true
+  try {
+    sonic.emit(kFlush)
+  } finally {
+    sonic._emittingFlush = false
+  }
+}
+
+function finishEnding (sonic) {
+  if (!sonic._ending || sonic._writing || sonic.destroyed) return
+  if (sonic._len > 0) {
+    sonic._actualWrite()
+    return
+  }
+  if (sonic._flushPending > 0) emitFlush(sonic)
+  if (sonic._flushPending === 0 && sonic._flushInProgress === 0 &&
+      !sonic._writing && sonic._len === 0) {
+    actualClose(sonic)
+  }
 }
 
 inherits(SonicBoom, EventEmitter)
@@ -396,31 +440,61 @@ function writeBuffer (data) {
 }
 
 function callFlushCallbackOnDrain (cb) {
-  this._flushPending = true
-  const onDrain = () => {
+  this._flushPending++
+  let waiting = true
+  let completed = false
+  let flushing = false
+  const stopWaiting = () => {
+    if (!waiting) return false
+    waiting = false
+    this.off(kFlush, onDrain)
+    this.off('error', onError)
+    return true
+  }
+  const complete = (err, finish = true) => {
+    if (completed) return
+    completed = true
+    if (flushing) this._flushInProgress--
+    try {
+      cb(err)
+    } finally {
+      if (finish) finishEnding(this)
+    }
+  }
+  const onDrain = (err) => {
+    if (!stopWaiting()) return
+    this._flushPending--
+    if (err) {
+      complete(err, false)
+      return
+    }
+    this._flushInProgress++
+    flushing = true
     // only if _fsync is false to avoid double fsync
-    if (!this._fsync) {
+    if (!this._fsync && !this.destroyed && this.fd !== 1 && this.fd !== 2) {
       try {
         fs.fsync(this.fd, (err) => {
-          this._flushPending = false
-          cb(err)
+          // If the fd is closed, we ignore the error.
+          if (err?.code === 'EBADF') {
+            complete()
+            return
+          }
+          complete(err)
         })
       } catch (err) {
-        cb(err)
+        complete(err)
       }
     } else {
-      this._flushPending = false
-      cb()
+      complete()
     }
-    this.off('error', onError)
   }
   const onError = (err) => {
-    this._flushPending = false
-    cb(err)
-    this.off('drain', onDrain)
+    if (!stopWaiting()) return
+    this._flushPending--
+    complete(err, false)
   }
 
-  this.once('drain', onDrain)
+  this.once(kFlush, onDrain)
   this.once('error', onError)
 }
 
@@ -439,7 +513,7 @@ function flush (cb) {
     throw error
   }
 
-  if (this.minLength <= 0) {
+  if (this.minLength <= 0 && !this._writing && this._len === 0) {
     cb?.()
     return
   }
@@ -474,7 +548,7 @@ function flushBuffer (cb) {
     throw error
   }
 
-  if (this.minLength <= 0) {
+  if (this.minLength <= 0 && !this._writing && this._len === 0) {
     cb?.()
     return
   }
@@ -502,7 +576,7 @@ SonicBoom.prototype.reopen = function (file) {
 
   if (this._opening) {
     this.once('ready', () => {
-      this.reopen(file)
+      if (!this.destroyed) this.reopen(file)
     })
     return
   }
@@ -545,7 +619,7 @@ SonicBoom.prototype.end = function () {
 
   if (this._opening) {
     this.once('ready', () => {
-      this.end()
+      if (!this.destroyed) this.end()
     })
     return
   }
@@ -563,7 +637,7 @@ SonicBoom.prototype.end = function () {
   if (this._len > 0 && this.fd >= 0) {
     this._actualWrite()
   } else {
-    actualClose(this)
+    finishEnding(this)
   }
 }
 
@@ -711,6 +785,10 @@ function actualWriteBuffer () {
 }
 
 function actualClose (sonic) {
+  if (sonic.destroyed) {
+    return
+  }
+
   if (sonic.fd === -1) {
     sonic.once('ready', actualClose.bind(null, sonic))
     return
@@ -723,6 +801,10 @@ function actualClose (sonic) {
   sonic.destroyed = true
   sonic._bufs = []
   sonic._lens = []
+
+  if (sonic._flushPending > 0) {
+    sonic.emit(kFlush, new Error('SonicBoom destroyed'))
+  }
 
   assert(typeof sonic.fd === 'number', `sonic.fd must be a number, got ${typeof sonic.fd}`)
   try {
