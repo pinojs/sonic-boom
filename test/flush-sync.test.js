@@ -139,3 +139,153 @@ test('throw error in flushSync on EAGAIN', (t, end) => {
     t.assert.ok('close emitted')
   })
 })
+
+for (const contentMode of ['utf8', 'buffer']) {
+  const toData = (str) => contentMode === 'buffer' ? Buffer.from(str) : str
+
+  test(`flushSync while an async write is in flight writes the queued data (${contentMode})`, (t, end) => {
+    t.plan(4)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      'node:fs': fakeFs
+    })
+
+    let completeWrite
+    fakeFs.write = function (fd, buf, ...args) {
+      const cb = args.pop()
+      completeWrite = () => cb(null, fs.writeSync(fd, buf))
+    }
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 0, sync: false, contentMode })
+
+    stream.on('ready', () => {
+      stream.write(toData('in flight\n'))
+      t.assert.equal(stream._writing, true)
+      stream.write(toData('queued\n'))
+      stream.flushSync()
+      t.assert.equal(fs.readFileSync(dest, 'utf8'), 'queued\n')
+
+      stream.flush((err) => {
+        t.assert.ifError(err)
+        stream.on('finish', () => {
+          t.assert.equal(fs.readFileSync(dest, 'utf8'), 'queued\nin flight\n')
+          end()
+        })
+        stream.end()
+      })
+      completeWrite()
+    })
+  })
+
+  test(`flushSync while waiting to retry EAGAIN writes everything in order (${contentMode})`, (t, end) => {
+    t.plan(5)
+
+    const fakeFs = Object.create(fs)
+    const SonicBoom = proxyquire('../', {
+      'node:fs': fakeFs
+    })
+
+    fakeFs.write = function (fd, buf, ...args) {
+      const cb = args.pop()
+      const err = new Error('EAGAIN')
+      err.code = 'EAGAIN'
+      process.nextTick(cb, err)
+    }
+
+    const dest = file()
+    const fd = fs.openSync(dest, 'w')
+    const stream = new SonicBoom({ fd, minLength: 0, sync: false, contentMode })
+
+    stream.on('ready', () => {
+      stream.write(toData('hello\n'))
+      // Wait for the EAGAIN to schedule the retry.
+      setImmediate(() => {
+        t.assert.equal(stream._writing, true)
+        stream.write(toData('world\n'))
+        // A pending flush() completes once flushSync() takes over the write.
+        stream.flush((err) => {
+          t.assert.ifError(err)
+          stream.on('finish', () => {
+            t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello\nworld\n')
+            end()
+          })
+          stream.end()
+        })
+        stream.flushSync()
+        t.assert.equal(stream._writing, false)
+        t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello\nworld\n')
+      })
+    })
+  })
+
+  for (const sync of [true, false]) {
+    test(`flushSync from a 'write' listener writes the remainder of a partial write first (sync: ${sync}, ${contentMode})`, (t, end) => {
+      t.plan(4)
+
+      const fakeFs = Object.create(fs)
+      const SonicBoom = proxyquire('../', {
+        'node:fs': fakeFs
+      })
+
+      let partial = true
+      const partialWrite = (fd, buf) => {
+        if (partial) {
+          partial = false
+          return fs.writeSync(fd, Buffer.from(buf).subarray(0, 5))
+        }
+        return fs.writeSync(fd, buf)
+      }
+      fakeFs.writeSync = (fd, buf) => partialWrite(fd, buf)
+      fakeFs.write = (fd, buf, ...args) => {
+        const cb = args.pop()
+        process.nextTick(cb, null, partialWrite(fd, buf))
+      }
+
+      const dest = file()
+      const fd = fs.openSync(dest, 'w')
+      const stream = new SonicBoom({ fd, minLength: 0, sync, contentMode })
+
+      stream.once('write', (n) => {
+        t.assert.equal(n, 5)
+        t.assert.equal(stream._writing, true)
+        stream.write(toData('next\n'))
+        stream.flushSync()
+        t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\nnext\n')
+      })
+
+      stream.on('ready', () => {
+        stream.write(toData('hello world\n'))
+        stream.on('finish', () => {
+          t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\nnext\n')
+          end()
+        })
+        stream.end()
+      })
+    })
+  }
+}
+
+test('flushSync while reopening writes to the previous file', (t, end) => {
+  t.plan(3)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest, minLength: 4096, sync: false })
+
+  stream.once('ready', () => {
+    stream.write('before reopen\n')
+    stream.reopen()
+    t.assert.equal(stream._writing, true)
+    stream.flushSync()
+    t.assert.equal(fs.readFileSync(dest, 'utf8'), 'before reopen\n')
+    stream.once('ready', () => {
+      stream.on('finish', () => {
+        t.assert.equal(fs.readFileSync(dest, 'utf8'), 'before reopen\n')
+        end()
+      })
+      stream.end()
+    })
+  })
+})
