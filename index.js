@@ -278,6 +278,14 @@ function SonicBoom (opts) {
 
     if (this.destroyed) {
       this._writing = false
+      if (this._flushPending > 0) {
+        if (this._len === 0) {
+          // Everything was written before the fd was closed.
+          scheduleDrain(this)
+        } else {
+          this.emit(kFlush, new Error('SonicBoom destroyed'))
+        }
+      }
       return
     }
 
@@ -906,7 +914,15 @@ function actualClose (sonic) {
   sonic._bufs = []
   sonic._lens = []
 
-  if (sonic._flushPending > 0) {
+  if (sonic._retryTimer !== null) {
+    clearTimeout(sonic._retryTimer)
+    sonic._retryTimer = null
+    sonic._writing = false
+  }
+
+  // If a write is in flight, release() settles the pending flushes once it
+  // completes, depending on whether all the data was written.
+  if (sonic._flushPending > 0 && (!sonic._writing || sonic._opening)) {
     sonic.emit(kFlush, new Error('SonicBoom destroyed'))
   }
 

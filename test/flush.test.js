@@ -619,3 +619,101 @@ test('flush fsyncs stdout redirected to a regular file', (t) => {
   t.assert.equal(child.stderr.toString(), '1')
   t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\n')
 })
+
+test('destroy with a write in flight completes a pending flush once the data is written', (t, end) => {
+  t.plan(2)
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+
+  stream.write('hello world\n')
+  stream.flush((err) => {
+    t.assert.ifError(err)
+    t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello world\n')
+    end()
+  })
+  stream.destroy()
+})
+
+test('destroy with a write in flight fails a pending flush if data is left', (t, end) => {
+  t.plan(2)
+
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  // Only write part of the data.
+  fakeFs.write = function (fd, buf, ...args) {
+    const cb = args.pop()
+    process.nextTick(cb, null, fs.writeSync(fd, Buffer.from(buf).subarray(0, 5)))
+  }
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+
+  stream.write('hello world\n')
+  stream.flush((err) => {
+    t.assert.equal(err?.message, 'SonicBoom destroyed')
+    t.assert.equal(fs.readFileSync(dest, 'utf8'), 'hello')
+    end()
+  })
+  stream.destroy()
+})
+
+test('destroy while waiting to retry EAGAIN fails a pending flush', (t, end) => {
+  t.plan(2)
+
+  const fakeFs = Object.create(fs)
+  const SonicBoom = proxyquire('../', {
+    'node:fs': fakeFs
+  })
+
+  let writes = 0
+  fakeFs.write = function (fd, buf, ...args) {
+    writes++
+    const cb = args.pop()
+    const err = new Error('EAGAIN')
+    err.code = 'EAGAIN'
+    process.nextTick(cb, err)
+  }
+
+  const dest = file()
+  const fd = fs.openSync(dest, 'w')
+  const stream = new SonicBoom({ fd, minLength: 0, sync: false })
+
+  stream.on('error', (err) => t.assert.fail(err))
+  stream.write('hello world\n')
+  stream.flush((err) => {
+    t.assert.equal(err?.message, 'SonicBoom destroyed')
+  })
+  setImmediate(() => {
+    stream.destroy()
+    setTimeout(() => {
+      t.assert.equal(writes, 1, 'retry cancelled')
+      end()
+    }, 200)
+  })
+})
+
+test('destroy while reopening fails a pending flush', (t, end) => {
+  t.plan(2)
+
+  const dest = file()
+  const stream = new SonicBoom({ dest, minLength: 4096, sync: false })
+
+  stream.once('ready', () => {
+    stream.write('hello world\n')
+    stream.reopen()
+    stream.flush((err) => {
+      t.assert.equal(err?.message, 'SonicBoom destroyed')
+    })
+    stream.on('close', () => {
+      t.assert.ok('close emitted')
+      end()
+    })
+    stream.destroy()
+  })
+})
