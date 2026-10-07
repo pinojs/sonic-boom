@@ -851,7 +851,11 @@ SonicBoom.prototype.destroy = function () {
   if (this.destroyed) {
     return
   }
+  const opening = this._opening
   actualClose(this)
+  if (opening && this._flushPending > 0) {
+    this.emit('error', new Error('SonicBoom destroyed'))
+  }
 }
 
 function actualWrite () {
@@ -902,7 +906,13 @@ function actualClose (sonic) {
   }
 
   if (sonic.fd === -1) {
-    sonic.once('ready', actualClose.bind(null, sonic))
+    // Mark the stream as destroyed right away, so that it rejects further
+    // writes, and close it once the file is open.
+    sonic.destroyed = true
+    sonic.once('ready', () => {
+      sonic.destroyed = false
+      actualClose(sonic)
+    })
     return
   }
 
@@ -922,7 +932,7 @@ function actualClose (sonic) {
 
   // If a write is in flight, release() settles the pending flushes once it
   // completes, depending on whether all the data was written.
-  if (sonic._flushPending > 0 && (!sonic._writing || sonic._opening)) {
+  if (sonic._flushPending > 0 && !sonic._writing) {
     sonic.emit(kFlush, new Error('SonicBoom destroyed'))
   }
 

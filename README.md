@@ -130,6 +130,10 @@ Closes the stream, the data will be flushed down asynchronously
 
 Closes the stream immediately, the data is not flushed.
 
+If the file is still being opened, the stream is marked as destroyed right
+away (so `write()` and `end()` throw) and is closed once the file is open.
+A pending `flush()` then fails with an `'error'` event.
+
 ### Events
 
 #### SonicBoom#close

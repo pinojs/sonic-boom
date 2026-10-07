@@ -568,23 +568,31 @@ test('destroy while opening with a pending end does not throw', (t, end) => {
   })
 })
 
-test('end while opening after destroy does not throw', (t, end) => {
-  t.plan(1)
+test('destroy while opening marks the stream as destroyed', (t, end) => {
+  t.plan(5)
 
   const stream = new SonicBoom({ dest: file(), sync: false })
   stream.destroy()
-  stream.end()
+  t.assert.equal(stream.destroyed, true)
+  t.assert.throws(() => stream.write('hello world\n'), /SonicBoom destroyed/)
+  t.assert.throws(() => stream.end(), /SonicBoom destroyed/)
+  stream.flush((err) => {
+    t.assert.equal(err?.message, 'SonicBoom destroyed')
+  })
   stream.on('close', () => {
     t.assert.ok('close emitted')
     end()
   })
 })
 
-test('destroy while opening fails a pending flush', (t, end) => {
-  t.plan(2)
+test('destroy while opening fails a pending flush with an error', (t, end) => {
+  t.plan(3)
 
   const stream = new SonicBoom({ dest: file(), sync: false })
   stream.flush((err) => {
+    t.assert.equal(err?.message, 'SonicBoom destroyed')
+  })
+  stream.on('error', (err) => {
     t.assert.equal(err.message, 'SonicBoom destroyed')
   })
   stream.on('close', () => {
