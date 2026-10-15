@@ -143,6 +143,53 @@ test('throw error in flushSync on EAGAIN', (t, end) => {
 for (const contentMode of ['utf8', 'buffer']) {
   const toData = (str) => contentMode === 'buffer' ? Buffer.from(str) : str
 
+  for (const code of ['EIO', 'EAGAIN']) {
+    for (const resume of ['flushSync', 'end']) {
+      test(`recover from ${code} after a partial flushSync using ${resume} (${contentMode})`, (t, end) => {
+        t.plan(3)
+
+        const fakeFs = Object.create(fs)
+        const SonicBoom = proxyquire('../', {
+          'node:fs': fakeFs
+        })
+        const error = Object.assign(new Error('write failed'), { code })
+        let partial = true
+        fakeFs.writeSync = function (fd, data) {
+          if (partial) {
+            partial = false
+            return fs.writeSync(fd, Buffer.from(data).subarray(0, 2))
+          }
+          throw error
+        }
+
+        const dest = file()
+        const fd = fs.openSync(dest, 'w')
+        const stream = new SonicBoom({
+          fd,
+          minLength: 4096,
+          contentMode,
+          retryEAGAIN: () => false
+        })
+        const input = '🦄 hello world\n'
+        const next = 'next line\n'
+        stream.write(toData(input))
+
+        t.assert.throws(() => stream.flushSync(), error)
+        t.assert.deepEqual(fs.readFileSync(dest), Buffer.from(input).subarray(0, 2))
+
+        fakeFs.writeSync = fs.writeSync
+        stream.write(toData(next))
+        if (resume === 'flushSync') stream.flushSync()
+
+        stream.on('close', () => {
+          t.assert.deepEqual(fs.readFileSync(dest), Buffer.from(input + next))
+          end()
+        })
+        stream.end()
+      })
+    }
+  }
+
   test(`flushSync while an async write is in flight writes the queued data (${contentMode})`, (t, end) => {
     t.plan(4)
 

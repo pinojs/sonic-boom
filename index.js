@@ -442,6 +442,7 @@ function write (data) {
 
   if (
     bufs.length === 0 ||
+    Buffer.isBuffer(bufs[bufs.length - 1]) ||
     Buffer.byteLength(bufs[bufs.length - 1]) + dataLen > this.maxWrite
   ) {
     bufs.push(data)
@@ -778,6 +779,8 @@ function flushSync () {
         this._len = releasedBufObj.len
         if (buf.length <= 0) {
           this._bufs.shift()
+        } else {
+          this._bufs[0] = buf
         }
       } catch (err) {
         const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
@@ -828,6 +831,9 @@ function flushBufferSync () {
         if (buf.length <= 0) {
           this._bufs.shift()
           this._lens.shift()
+        } else {
+          this._bufs[0] = [buf]
+          this._lens[0] = buf.length
         }
       } catch (err) {
         const shouldRetry = err.code === 'EAGAIN' || err.code === 'EBUSY'
