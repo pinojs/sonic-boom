@@ -52,7 +52,7 @@ function isIgnorableFsyncError (err) {
 const [major, minor] = (process.versions.node || '0.0').split('.').map(Number)
 const kCopyBuffer = major >= 22 && minor >= 7
 
-function openFile (file, sonic) {
+function openFile (file, sonic, onError) {
   sonic._opening = true
   sonic._writing = true
   sonic._asyncDrainScheduled = false
@@ -62,6 +62,7 @@ function openFile (file, sonic) {
 
   function fileOpened (err, fd) {
     if (err) {
+      onError?.()
       sonic._reopening = false
       sonic._writing = false
       sonic._opening = false
@@ -654,7 +655,7 @@ SonicBoom.prototype.reopen = function (file) {
   }
 
   const fd = this.fd
-  this.once('ready', () => {
+  const onReady = () => {
     if (fd !== this.fd) {
       fs.close(fd, (err) => {
         if (err) {
@@ -662,9 +663,10 @@ SonicBoom.prototype.reopen = function (file) {
         }
       })
     }
-  })
+  }
+  this.once('ready', onReady)
 
-  openFile(this.file, this)
+  openFile(this.file, this, () => this.removeListener('ready', onReady))
 }
 
 SonicBoom.prototype.end = function () {
