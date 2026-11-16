@@ -4,7 +4,58 @@ const test = require('node:test')
 const fs = require('node:fs')
 const proxyquire = require('proxyquire')
 const SonicBoom = require('../')
+const { once } = require('node:events')
 const { file } = require('./helper')
+
+for (const sync of [true, false]) {
+  for (const contentMode of ['utf8', 'buffer']) {
+    test(`reopen after an open failure (sync: ${sync}, ${contentMode})`, { timeout: 5000 }, async (t) => {
+      const dest = file()
+      const after = file()
+      const stream = new SonicBoom({ dest, sync, contentMode })
+      const errors = []
+      stream.on('error', err => errors.push(err.code))
+      t.after(() => {
+        if (!stream.destroyed) stream.destroy()
+      })
+      const data = value => contentMode === 'buffer' ? Buffer.from(value) : value
+
+      await once(stream, 'ready')
+      const oldFd = stream.fd
+      const failed = once(stream, 'error')
+      const missing = file() + '/missing.log'
+      if (sync) {
+        t.assert.throws(() => stream.reopen(missing), { code: 'ENOENT' })
+      } else {
+        stream.reopen(missing)
+      }
+      const [err] = await failed
+      t.assert.equal(err.code, 'ENOENT')
+      t.assert.equal(stream.fd, oldFd)
+      t.assert.ok(fs.fstatSync(oldFd).isFile())
+
+      // The old file remains writable until a replacement opens successfully.
+      const drained = once(stream, 'drain')
+      stream.write(data('after failed reopen\n'))
+      await drained
+      t.assert.equal(fs.readFileSync(dest, 'utf8'), 'after failed reopen\n')
+
+      const ready = once(stream, 'ready')
+      stream.reopen(after)
+      await ready
+      t.assert.notEqual(stream.fd, oldFd)
+      const closed = once(stream, 'close')
+      stream.write(data('after successful reopen\n'))
+      stream.end()
+      await closed
+
+      t.assert.equal(fs.readFileSync(dest, 'utf8'), 'after failed reopen\n')
+      t.assert.equal(fs.readFileSync(after, 'utf8'), 'after successful reopen\n')
+      t.assert.deepEqual(errors, ['ENOENT'])
+      t.assert.throws(() => fs.fstatSync(oldFd), { code: 'EBADF' })
+    })
+  }
+}
 
 for (const sync in [true, false]) {
   // Reset the umask for testing
